@@ -27,6 +27,8 @@ import { acceptQuote, createQuote } from '../services/quotes.js';
 import { getSettings, updateSettings } from '../services/settings.js';
 import { listTrm, recordManualTrm } from '../services/trm.js';
 import { authenticate, listUsers } from '../services/users.js';
+import { apiV1 } from './v1/index.js';
+import type { V1Deps } from './v1/kit.js';
 
 const ORDER_STATUSES = [
   'AWAITING_PAYMENT',
@@ -49,21 +51,48 @@ declare module 'fastify' {
   }
 }
 
-export function buildApp(deps: { db: Db; config: Config; adapters: Adapters }) {
+export function buildApp(deps: { db: Db; config: Config; adapters: Adapters; v1?: V1Deps }) {
   const { db, config, adapters } = deps;
-  const app = Fastify({ logger: { level: process.env.LOG_LEVEL ?? 'info' } });
+  const app = Fastify({
+    bodyLimit: 64 * 1024,
+    logger: {
+      level: process.env.LOG_LEVEL ?? 'info',
+      // Nunca se escriben en los logs contraseñas, cookies, tokens ni llaves.
+      redact: {
+        paths: ['req.headers.authorization', 'req.headers.cookie', 'req.headers["x-csrf-token"]', 'res.headers["set-cookie"]'],
+        censor: '[oculto]',
+      },
+    },
+  });
   app.register(cors, { origin: config.corsOrigin });
 
   app.setErrorHandler((err, req, reply) => {
     if (err instanceof DomainError) {
-      return reply.status(err.httpStatus).send({ code: err.code, message: err.message });
+      return reply.status(err.httpStatus).send({ code: err.code, message: err.message, requestId: req.id });
     }
     if (err instanceof ZodError) {
-      return reply.status(400).send({ code: 'INVALID', message: err.issues.map((i) => i.message).join('; ') });
+      return reply.status(400).send({
+        code: 'INVALID',
+        message: err.issues.map((i) => (i.path.length ? `${i.path.join('.')}: ${i.message}` : i.message)).join('; '),
+        requestId: req.id,
+      });
+    }
+    const status = (err as { statusCode?: number }).statusCode;
+    if (status && status >= 400 && status < 500) {
+      // Errores del propio servidor HTTP (cuerpo inválido, demasiado grande, demasiadas solicitudes).
+      return reply.status(status).send({
+        code: (err as { code?: string }).code ?? 'BAD_REQUEST',
+        message: status === 413 ? 'La solicitud es demasiado grande' : err.message,
+        requestId: req.id,
+      });
     }
     req.log.error(err);
-    return reply.status(500).send({ code: 'INTERNAL', message: 'Error interno. Quedó registrado para revisión.' });
+    return reply
+      .status(500)
+      .send({ code: 'INTERNAL', message: 'Error interno. Quedó registrado para revisión.', requestId: req.id });
   });
+
+  if (deps.v1) app.register(apiV1, { prefix: '/api/v1', ...deps.v1 });
 
   function actorOf(req: FastifyRequest): Actor {
     const header = req.headers.authorization;

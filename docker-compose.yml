@@ -23,6 +23,10 @@ services:
       JWT_SECRET: ${JWT_SECRET:-solo-para-demo-local-cambiar-en-cualquier-otro-entorno}
       DEMO_PASSWORD: ${DEMO_PASSWORD:-demo1234}
       CORS_ORIGIN: http://localhost:8080
+      # Llave de cifrado SOLO para la demo local. En cualquier otro entorno viene del gestor de secretos.
+      MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY:-00000000000000000000000000000000000000000000000000000000000000de}
+      # La demo corre en http://localhost; en cualquier otro entorno la cookie exige HTTPS.
+      COOKIE_SECURE: "false"
     depends_on:
       db:
         condition: service_healthy

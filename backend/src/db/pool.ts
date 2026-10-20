@@ -8,7 +8,9 @@ export type Db = pg.Pool;
 export type Tx = pg.PoolClient;
 
 export function createPool(connectionString: string): Db {
-  return new pg.Pool({ connectionString, max: 10 });
+  // search_path fijo: si el usuario de la base se llamara igual que el esquema "otc", PostgreSQL
+  // buscaría ahí primero las tablas de la demo. El código v1 siempre escribe "otc." explícito.
+  return new pg.Pool({ connectionString, max: 10, options: '-c search_path=public' });
 }
 
 export async function withTx<T>(db: Db, fn: (tx: Tx) => Promise<T>): Promise<T> {

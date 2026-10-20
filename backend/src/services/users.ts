@@ -1,16 +1,18 @@
 import bcrypt from 'bcryptjs';
 import type { Db, Tx } from '../db/pool.js';
+import { verifyPassword } from '../modules/identity/service.js';
 import { audit } from './audit.js';
+import type { Actor, Role } from './context.js';
 
 const DUMMY_HASH = bcrypt.hashSync('no-es-una-clave-real', 10);
-import type { Actor, Role } from './context.js';
 
 // Devuelve null si falla, sin lanzar, para que el intento fallido quede auditado.
 export async function authenticate(tx: Tx, username: string, password: string): Promise<Actor | null> {
   const r = await tx.query('SELECT id, username, password_hash, roles, active FROM users WHERE username = $1', [username]);
   const user = r.rows[0];
   // Se compara siempre para no revelar por tiempo si el usuario existe.
-  const ok = await bcrypt.compare(password, user?.password_hash ?? DUMMY_HASH);
+  // Acepta Argon2id (usuarios que ya entraron por la API v1) y bcrypt (usuarios de la demo).
+  const ok = await verifyPassword(user?.password_hash ?? DUMMY_HASH, password);
   if (!user || !ok || !user.active) {
     await audit(tx, user?.id ?? null, 'auth.login_failed', 'user', user?.id ?? null, { username });
     return null;

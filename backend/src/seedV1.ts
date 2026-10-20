@@ -103,10 +103,22 @@ const counterparties: Step = async (tx) => {
   return true;
 };
 
+// Regla de precio de referencia del negocio: compra a TRM − 45, venta a TRM + 15, comisión 0,1 %.
+const pricing: Step = async (tx) => {
+  const r = await tx.query('SELECT 1 FROM otc.pricing_rules LIMIT 1');
+  if (r.rowCount) return false;
+  await tx.query(
+    `INSERT INTO otc.pricing_rules (counterparty_id, min_usdt, buy_margin_cop, sell_margin_cop, commission_rate, reason)
+     VALUES (NULL, 0, 45, 15, 0.001, 'Regla de referencia del negocio (demo)')`,
+  );
+  return true;
+};
+
 export const SEED_STEPS: Array<[string, Step]> = [
   ['usuarios', users],
   ['parametros', deskSettings],
   ['contrapartes', counterparties],
+  ['precios', pricing],
 ];
 
 /** Carga lo que falte de los datos ficticios. Devuelve los bloques cargados. */

@@ -114,11 +114,36 @@ const pricing: Step = async (tx) => {
   return true;
 };
 
+// Límites de ejemplo para la demo (cada mesa fija los suyos). Propone admin y aprueba admin2.
+const limits: Step = async (tx) => {
+  const r = await tx.query('SELECT 1 FROM otc.policy_changes LIMIT 1');
+  if (r.rowCount) return false;
+  const admin = await userId(tx, 'admin');
+  const admin2 = await userId(tx, 'admin2');
+  const values: Array<[string, Record<string, string>]> = [
+    ['ORDER_MAX_USDT', { amount: '200000' }],
+    ['CLIENT_DAILY_USDT', { amount: '500000' }],
+    ['DESK_DAILY_USDT', { amount: '2000000' }],
+    ['OPEN_EXPOSURE_USDT', { amount: '1000000' }],
+    ['OPEN_EXPOSURE_COP', { amount: '4000000000' }],
+    ['APPROVAL_POLICY', { policy: 'THRESHOLD', thresholdCop: '50000000' }],
+  ];
+  for (const [kind, value] of values) {
+    await tx.query(
+      `INSERT INTO otc.policy_changes (kind, value, status, reason, proposed_by, decided_by, decided_at, decision_note)
+       VALUES ($1,$2,'VIGENTE','Valor inicial de ejemplo (demo)',$3,$4, now(), 'Segunda firma de demo')`,
+      [kind, value, admin, admin2],
+    );
+  }
+  return true;
+};
+
 export const SEED_STEPS: Array<[string, Step]> = [
   ['usuarios', users],
   ['parametros', deskSettings],
   ['contrapartes', counterparties],
   ['precios', pricing],
+  ['limites', limits],
 ];
 
 /** Carga lo que falte de los datos ficticios. Devuelve los bloques cargados. */

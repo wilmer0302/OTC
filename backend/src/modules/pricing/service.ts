@@ -21,7 +21,7 @@ const TRM_SELECT = `SELECT id, to_char(valid_date,'YYYY-MM-DD') AS valid_date, r
 
 /** La TRM vigente es la última cargada para la fecha de hoy en Bogotá. Sin TRM del día no se cotiza. */
 export async function currentTrm(q: Db | Tx, date: string): Promise<TrmRow | null> {
-  const r = await q.query<TrmRow>(`${TRM_SELECT} WHERE valid_date = $1 ORDER BY created_at DESC, id DESC LIMIT 1`, [date]);
+  const r = await q.query<TrmRow>(`${TRM_SELECT} WHERE valid_date = $1 ORDER BY seq DESC LIMIT 1`, [date]);
   return r.rows[0] ?? null;
 }
 
@@ -33,7 +33,7 @@ export async function requireTrm(ctx: Ctx): Promise<TrmRow> {
 }
 
 export async function listTrm(ctx: Pick<Ctx, 'tx'>, limit = 30): Promise<TrmRow[]> {
-  return (await ctx.tx.query<TrmRow>(`${TRM_SELECT} ORDER BY valid_date DESC, created_at DESC LIMIT $1`, [limit])).rows;
+  return (await ctx.tx.query<TrmRow>(`${TRM_SELECT} ORDER BY valid_date DESC, seq DESC LIMIT $1`, [limit])).rows;
 }
 
 /**
@@ -63,7 +63,7 @@ export async function effectiveRules(q: Db | Tx, counterpartyId?: string | null)
             commission_rate, active, reason, created_at
      FROM otc.pricing_rules
      WHERE ($1::uuid IS NULL OR counterparty_id IS NULL OR counterparty_id = $1)
-     ORDER BY counterparty_id, min_usdt, created_at DESC, id DESC`,
+     ORDER BY counterparty_id, min_usdt, seq DESC`,
     [counterpartyId ?? null],
   );
   return r.rows;

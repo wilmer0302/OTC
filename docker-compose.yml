@@ -1,0 +1,38 @@
+# Demo local: base de datos, backend y frontend en contenedores separados.
+# Arranque: docker compose up --build   ->   http://localhost:8080
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: otc
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-otc_demo}
+      POSTGRES_DB: otc
+    volumes:
+      - otc_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U otc -d otc"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build: ./backend
+    environment:
+      APP_MODE: DEMO
+      DATABASE_URL: postgres://otc:${DB_PASSWORD:-otc_demo}@db:5432/otc
+      JWT_SECRET: ${JWT_SECRET:-solo-para-demo-local-cambiar-en-cualquier-otro-entorno}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-demo1234}
+      CORS_ORIGIN: http://localhost:8080
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+volumes:
+  otc_db:

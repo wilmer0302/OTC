@@ -1,6 +1,7 @@
 import cookie from '@fastify/cookie';
 import rateLimit from '@fastify/rate-limit';
 import type { FastifyInstance } from 'fastify';
+import { counterpartyRoutes } from '../../modules/counterparties/routes.js';
 import { identityRoutes } from '../../modules/identity/routes.js';
 import { makeKit, type V1Deps } from './kit.js';
 
@@ -30,4 +31,5 @@ export async function apiV1(app: FastifyInstance, deps: V1Deps) {
 
   const kit = makeKit(app, deps);
   identityRoutes(app, kit, deps);
+  counterpartyRoutes(kit);
 }

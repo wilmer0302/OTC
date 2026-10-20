@@ -41,9 +41,72 @@ const deskSettings: Step = async (tx) => {
   return true;
 };
 
+const userId = async (tx: Tx, username: string) =>
+  (await tx.query('SELECT id FROM public.users WHERE username = $1', [username])).rows[0].id as string;
+
+// Clientes ficticios con KYC y destinos ya aprobados (propone el trader, aprueba Cumplimiento).
+// Las direcciones tienen formato válido pero no pertenecen a nadie: son de prueba.
+export const DEMO_COUNTERPARTIES = [
+  {
+    name: 'Comercializadora Andina SAS (ficticio)', personType: 'JURIDICA', docType: 'NIT', doc: '900000001', kyc: 'APROBADO',
+    bank: '1000000001', tron: 'TDemo1AndinaFicticia11111111111111', bsc: '0x00000000000000000000000000000000000a0001',
+  },
+  {
+    name: 'Inversiones del Caribe SAS (ficticio)', personType: 'JURIDICA', docType: 'NIT', doc: '900000002', kyc: 'APROBADO',
+    bank: '1000000002', tron: 'TDemo2CaribeFicticia22222222222222', bsc: '0x00000000000000000000000000000000000a0002',
+  },
+  {
+    name: 'Persona natural en revisión (ficticio)', personType: 'NATURAL', docType: 'CC', doc: '1000000003', kyc: 'PENDIENTE',
+    bank: null, tron: null, bsc: null,
+  },
+] as const;
+
+const counterparties: Step = async (tx) => {
+  const r = await tx.query('SELECT 1 FROM otc.counterparties LIMIT 1');
+  if (r.rowCount) return false;
+  const trader = await userId(tx, 'trader');
+  const compliance = await userId(tx, 'cumplimiento');
+  for (const c of DEMO_COUNTERPARTIES) {
+    const cp = await tx.query<{ id: string }>(
+      `INSERT INTO otc.counterparties (kind, person_type, document_type, document_number, kyc_status, created_by)
+       VALUES ('CLIENTE',$1,$2,$3,$4,$5) RETURNING id`,
+      [c.personType, c.docType, c.doc, c.kyc, trader],
+    );
+    const id = cp.rows[0].id;
+    await tx.query(
+      `INSERT INTO otc.counterparty_versions (counterparty_id, version, legal_name, reason, created_by)
+       VALUES ($1, 1, $2, 'Alta (datos ficticios de demo)', $3)`,
+      [id, c.name, trader],
+    );
+    if (c.kyc === 'APROBADO') {
+      await tx.query(
+        `INSERT INTO otc.kyc_reviews (counterparty_id, from_status, to_status, note, reviewed_by)
+         VALUES ($1,'PENDIENTE','APROBADO','KYC ficticio de demo',$2)`,
+        [id, compliance],
+      );
+    }
+    const dests: Array<[string, string | null, string | null, string | null]> = [
+      ['BANK', c.bank, 'Bancolombia', 'AHORROS'],
+      ['TRON', c.tron, null, null],
+      ['BSC', c.bsc, null, null],
+    ];
+    for (const [rail, value, bank, type] of dests) {
+      if (!value) continue;
+      await tx.query(
+        `INSERT INTO otc.destinations (counterparty_id, rail, value, bank_name, account_type, label, status,
+           proposed_by, decided_by, decided_at, decision_note)
+         VALUES ($1,$2,$3,$4,$5,$6,'APROBADO',$7,$8, now(), 'Destino ficticio de demo')`,
+        [id, rail, value, bank, type, `${rail} (demo)`, trader, compliance],
+      );
+    }
+  }
+  return true;
+};
+
 export const SEED_STEPS: Array<[string, Step]> = [
   ['usuarios', users],
   ['parametros', deskSettings],
+  ['contrapartes', counterparties],
 ];
 
 /** Carga lo que falte de los datos ficticios. Devuelve los bloques cargados. */

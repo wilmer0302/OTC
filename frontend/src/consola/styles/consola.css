@@ -399,3 +399,4 @@ textarea.input { resize: vertical; min-height: 64px; }
   .table td .td-content { text-align: right; min-width: 0; }
   .card-section { padding: 12px 12px 2px; }
 }
+.recon-item .cell-sub { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }

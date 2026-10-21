@@ -4,6 +4,7 @@ import Inicio from './inicio/Inicio';
 import Cotizaciones from './cotizaciones/Cotizaciones';
 import Ordenes from './ordenes/Ordenes';
 import Liquidez from './liquidez/Liquidez';
+import Conciliaciones from './conciliaciones/Conciliaciones';
 import { Pending } from './Pending';
 import Transferencias from './transferencias/Transferencias';
 import Solicitudes from './solicitudes/Solicitudes';
@@ -20,7 +21,7 @@ export const MODULES: Record<string, ComponentType<PageProps>> = {
   ordenes: Ordenes,
   liquidez: Liquidez,
   transferencias: Transferencias,
-  conciliaciones: Pending,
+  conciliaciones: Conciliaciones,
   auditoria: Pending,
   clientes: Pending,
   configuracion: Pending,

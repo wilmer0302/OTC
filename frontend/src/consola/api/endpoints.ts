@@ -100,7 +100,9 @@ export const liquidity = {
 export const reconciliation = {
   list: (q: { date?: string; status?: string } = {}) => get<T.ReconRunRow[]>('/reconciliations', q),
   get: (id: string) => get<T.ReconRun>(`/reconciliations/${id}`),
-  fetch: (accountId: string, date: string) => post<T.ReconRun>('/reconciliations/fetch', { accountId, date }),
+  fetch: (accountId: string, date: string) => post<{ runId: string; status: string; lines: number }>('/reconciliations/fetch', { accountId, date }),
+  importStatement: (accountId: string, date: string, lines: { reference: string; direction: 'IN' | 'OUT'; amount: string; occurredAt: string }[], o: W) =>
+    post<{ runId: string; status: string; lines: number }>('/reconciliations/import', { accountId, date, lines }, o),
   sendToReview: (itemId: string, note: string, o: W) => post(`/reconciliation-items/${itemId}/review`, { note }, o),
   clear: (itemId: string, note: string, o: W) => post(`/reconciliation-items/${itemId}/clear`, { note }, o),
   adjustments: (q: { status?: string; runId?: string } = {}) => get<T.Adjustment[]>('/adjustments', q),

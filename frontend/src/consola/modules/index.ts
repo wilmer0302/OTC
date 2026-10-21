@@ -3,6 +3,7 @@ import type { Route } from '../app/router';
 import Inicio from './inicio/Inicio';
 import Cotizaciones from './cotizaciones/Cotizaciones';
 import Ordenes from './ordenes/Ordenes';
+import Liquidez from './liquidez/Liquidez';
 import { Pending } from './Pending';
 import Solicitudes from './solicitudes/Solicitudes';
 
@@ -16,7 +17,7 @@ export const MODULES: Record<string, ComponentType<PageProps>> = {
   solicitudes: Solicitudes,
   cotizaciones: Cotizaciones,
   ordenes: Ordenes,
-  liquidez: Pending,
+  liquidez: Liquidez,
   transferencias: Pending,
   conciliaciones: Pending,
   auditoria: Pending,

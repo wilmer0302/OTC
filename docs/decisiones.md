@@ -41,7 +41,6 @@ Fecha de inicio: 2026-10-20. El diseño completo está en el documento de Fase 1
 | 33 | Conciliación por cuenta y día de Bogotá: el extracto del banco o de la red (o uno cargado a mano para el exchange) se cruza por referencia, sentido y monto; lo que el libro confirmó y el extracto no muestra queda Sin contrapartida | Especificación, módulo 10 | Implementada (fase 4) |
 | 34 | Ajustes contra la cuenta ADJUSTMENTS del activo, propuestos por Tesorería y aprobados por Administración (otra persona, segundo factor); el asiento original no se toca | Historias H10.2 y H11.2 | Implementada (fase 4) |
 | 35 | Una partida en revisión se puede aclarar sin ajuste solo por Administración, con motivo y segundo factor | Diferencias de fecha que no son dinero | Implementada (fase 4), revisable |
-
 | 36 | Consola nueva en `/consola/` (entrada propia de Vite, React + TypeScript) sobre `/api/v1`; la demo anterior en `/` no se toca | Implementar por módulos sin reemplazar todo de una vez | Implementada (fase 5) |
 | 37 | La consola guarda la sesión solo en la cookie HttpOnly y el token anti-CSRF en memoria (se vuelve a pedir al recargar); nada en `localStorage` | Ningún secreto en el navegador | Implementada (fase 5) |
 | 38 | Un código de segundo factor rechazado en una confirmación no cierra la sesión; solo la cierra una sesión vencida o inválida | Un error de digitación no debe sacar al operador | Implementada (fase 5) |

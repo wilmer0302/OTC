@@ -25,6 +25,10 @@ Fecha de inicio: 2026-10-20. El diseño completo está en el documento de Fase 1
 | 17 | Aceptar una cotización serializa con un bloqueo global de límites; la reserva y la orden se crean en la misma transacción | Dos aceptaciones simultáneas no superan límites ni liquidez | Implementada (fase 4) |
 | 18 | Una solicitud validada que vence sin cotización pasa a Cancelada (la especificación reserva Vencida para las cotizadas) | La especificación no permite Validada → Vencida | Implementada (fase 4), revisable |
 | 19 | Proceso trabajador separado (`worker`) para vencimientos y seguimiento, misma imagen que el backend | Arquitectura aprobada en la fase 3 | Implementada (fase 4) |
+| 20 | Confirmación reforzada: aprobaciones y cambios de configuración piden otra vez el código del segundo factor (cabecera `X-MFA-Code`, un solo uso) | Historia H13.2 | Implementada (fase 4) |
+| 21 | Un pago reportado después del plazo no vence la orden: la manda a revisión con un pendiente abierto | El dinero pudo haber llegado; ante la duda, revisión | Implementada (fase 4) |
+| 22 | Una orden solo se cancela sin dinero en movimiento; con pago reportado o confirmado se requiere devolución | Especificación: "una orden no se cancela después de que el cliente pagó" | Implementada (fase 4) |
+| 23 | Con la política "una persona", quien creó la orden puede aprobar la entrega (la mesa opera con un trader central); con dos firmas, deben ser personas distintas | Dato del negocio: un trader central | Implementada (fase 4), revisable |
 
 ## Supuestos abiertos
 

@@ -31,7 +31,7 @@ export function pricingRoutes(kit: Kit, hooks: { afterTrm?: (ctx: Ctx, trm: TrmR
   kit.post(
     '/pricing-rules',
     {
-      permission: 'pricing.manage',
+      permission: 'pricing.manage', stepUp: true,
       idempotent: true,
       status: 201,
       body: z.strictObject({

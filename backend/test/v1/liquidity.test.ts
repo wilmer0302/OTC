@@ -16,7 +16,7 @@ import {
   verifyBalances,
 } from '../../src/modules/liquidity/service.js';
 import { D } from '../../src/platform/money.js';
-import { as, call, expectCode, fixtureOrder, httpLogin, newKey, setupEnv, type Env } from './helpers.js';
+import { as, call, expectCode, fixtureOrder, fixtureTransfer, httpLogin, newKey, setupEnv, stepUp, type Env } from './helpers.js';
 
 describe('reglas del libro y de las reservas', () => {
   it('un asiento cuadra por activo y necesita dos líneas', () => {
@@ -134,9 +134,11 @@ describe('saldos, libro y reservas', () => {
     const order = await fixtureOrder(env);
     const id = await as(env, 'trader', (ctx) => reserve(ctx, { accountId: tron.id, orderId: order, amount: new D(1000), reason: 'Orden ficticia' }));
     await expectCode(as(env, 'tesorero2', (ctx) => consumeReservation(ctx, id)), 'INVALID_TRANSITION');
-    await as(env, 'tesorero2', (ctx) => lockReservation(ctx, id, randomUUID()));
+    const t1 = await fixtureTransfer(env, order);
+    await as(env, 'tesorero2', (ctx) => lockReservation(ctx, id, t1));
+    await env.db.query(`UPDATE otc.transfers SET status = 'FALLIDA' WHERE id = $1`, [t1]);
     await as(env, 'tesorero2', (ctx) => unlockReservation(ctx, id, 'La red rechazó la transacción (simulado)'));
-    const t2 = randomUUID();
+    const t2 = await fixtureTransfer(env, order);
     await as(env, 'tesorero2', (ctx) => lockReservation(ctx, id, t2));
     await as(env, 'tesorero2', (ctx) => consumeReservation(ctx, id));
     const r = (await env.db.query('SELECT status, transfer_id FROM otc.reservations WHERE id = $1', [id])).rows[0];
@@ -201,7 +203,7 @@ describe('saldos, libro y reservas', () => {
     const admin = await httpLogin(env, 'admin');
     const key = newKey();
     const body = { code: 'NEQUI_COP_DEMO', name: 'Nequi pesos (demo)', asset: 'COP', liquidityType: 'BANK' };
-    const created = await call(env, admin, 'POST', '/accounts', body, { 'idempotency-key': key });
+    const created = await call(env, admin, 'POST', '/accounts', body, { 'idempotency-key': key, ...stepUp(env, 'admin') });
     expect(created.status).toBe(201);
     const again = await call(env, admin, 'POST', '/accounts', body, { 'idempotency-key': key });
     expect(again.headers['idempotent-replay']).toBe('true');
@@ -213,7 +215,7 @@ describe('saldos, libro y reservas', () => {
       'POST',
       `/accounts/${created.body.id}/opening-balance`,
       { amount: '-5', reason: 'negativo' },
-      { 'idempotency-key': newKey() },
+      { 'idempotency-key': newKey(), ...stepUp(env, 'admin') },
     );
     expect(opening.status).toBe(400);
 

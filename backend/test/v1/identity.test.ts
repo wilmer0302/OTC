@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { can, PERMISSIONS } from '../../src/modules/identity/permissions.js';
 import { totpAt } from '../../src/modules/identity/totp.js';
-import { as, call, expectCode, httpLogin, mfaSecretOf, newKey, PASSWORD, setupEnv, type Env, type Session } from './helpers.js';
+import { as, call, expectCode, httpLogin, mfaSecretOf, newKey, PASSWORD, setupEnv, stepUp, type Env, type Session } from './helpers.js';
 
 let env: Env;
 beforeAll(async () => {
@@ -134,7 +134,13 @@ describe('protección de las solicitudes', () => {
     const body = { username: 'operador2', fullName: 'Operador dos (demo)', password: 'clave-larga-demo', roles: ['OPERADOR'] };
     expect((await call(env, admin, 'POST', '/users', body)).body.code).toBe('IDEMPOTENCY_KEY_REQUIRED');
     const key = newKey();
-    const first = await call(env, admin, 'POST', '/users', body, { 'idempotency-key': key });
+    // Crear usuarios pide otra vez el segundo factor: sin código, o con uno ya usado, no pasa.
+    const noCode = await call(env, admin, 'POST', '/users', body, { 'idempotency-key': newKey() });
+    expect([noCode.status, noCode.body.code]).toEqual([401, 'STEP_UP_REQUIRED']);
+    const code = stepUp(env, 'admin');
+    const first = await call(env, admin, 'POST', '/users', body, { 'idempotency-key': key, ...code });
+    const reused = await call(env, admin, 'POST', '/users', { ...body, username: 'operador3' }, { 'idempotency-key': newKey(), ...code });
+    expect([reused.status, reused.body.code]).toEqual([401, 'STEP_UP_FAILED']);
     const again = await call(env, admin, 'POST', '/users', body, { 'idempotency-key': key });
     expect(first.status).toBe(201);
     expect(again.status).toBe(201);
@@ -204,10 +210,10 @@ describe('administración de usuarios', () => {
     const admin = await httpLogin(env, 'admin');
     const before = await call(env, admin, 'GET', '/settings');
     expect(before.body.payment_window_seconds).toBe(480);
-    const r = await call(env, admin, 'POST', '/settings', { reason: 'prueba', payment_window_seconds: 600 }, { 'idempotency-key': newKey() });
+    const r = await call(env, admin, 'POST', '/settings', { reason: 'prueba', payment_window_seconds: 600 }, { 'idempotency-key': newKey(), ...stepUp(env, 'admin') });
     expect(r.body.payment_window_seconds).toBe(600);
     const versions = await env.db.query('SELECT count(*)::int AS n FROM otc.desk_settings');
     expect(versions.rows[0].n).toBe(2);
-    await call(env, admin, 'POST', '/settings', { reason: 'volver', payment_window_seconds: 480 }, { 'idempotency-key': newKey() });
+    await call(env, admin, 'POST', '/settings', { reason: 'volver', payment_window_seconds: 480 }, { 'idempotency-key': newKey(), ...stepUp(env, 'admin') });
   });
 });

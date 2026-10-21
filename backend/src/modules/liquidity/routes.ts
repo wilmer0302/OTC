@@ -13,7 +13,7 @@ export function liquidityRoutes(kit: Kit) {
   kit.post(
     '/accounts',
     {
-      permission: 'liquidity.manage',
+      permission: 'liquidity.manage', stepUp: true,
       idempotent: true,
       status: 201,
       body: z.strictObject({
@@ -32,7 +32,7 @@ export function liquidityRoutes(kit: Kit) {
   kit.post(
     '/accounts/:id/opening-balance',
     {
-      permission: 'liquidity.manage',
+      permission: 'liquidity.manage', stepUp: true,
       idempotent: true,
       status: 201,
       body: z.strictObject({ amount: decimal, reason: z.string().trim().min(3).max(500) }),

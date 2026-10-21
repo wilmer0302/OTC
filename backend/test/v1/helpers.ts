@@ -203,3 +203,27 @@ export async function fixtureOrder(env: Env, opts: { side?: 'BUY' | 'SELL'; usdt
     )
   ).rows[0].id;
 }
+
+/** Transferencia de entrega FICTICIA de una orden, autorizada, para probar el bloqueo de reservas. */
+export async function fixtureTransfer(env: Env, orderId: string): Promise<string> {
+  const r = await env.db.query(
+    `INSERT INTO otc.transfers (order_id, purpose, direction, rail, asset, amount, account_id, destination_id, status, created_at, updated_at)
+     SELECT o.id, 'ENTREGA', 'OUT', CASE WHEN o.side = 'SELL' THEN o.network ELSE 'BANK' END, a.asset,
+            CASE WHEN o.side = 'SELL' THEN o.usdt_amount ELSE o.total_cop END, o.deliver_account_id, o.destination_id, 'AUTORIZADA', $2, $2
+     FROM otc.orders o JOIN otc.accounts a ON a.id = o.deliver_account_id WHERE o.id = $1 RETURNING id`,
+    [orderId, env.clock.now()],
+  );
+  return r.rows[0].id;
+}
+
+/** Cabecera de confirmación reforzada: un código del segundo factor nuevo (avanza el reloj un paso). */
+export function stepUp(env: Env, username: string): Record<string, string> {
+  env.clock.advance(30);
+  return { 'x-mfa-code': totpAt(secrets.get(username)!, env.clock.now()) };
+}
+
+/** Ejecuta como el actor del sistema (trabajador), en su propia transacción. */
+export async function asSystem<T>(env: Env, fn: (ctx: Ctx) => Promise<T>): Promise<T> {
+  const { SYSTEM_ACTOR } = await import('../../src/platform/context.js');
+  return inTransaction(env.db, (tx) => fn({ tx, actor: SYSTEM_ACTOR, integrations: sandboxIntegrations(env.db), now: env.clock.now }));
+}

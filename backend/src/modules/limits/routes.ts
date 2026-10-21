@@ -32,7 +32,7 @@ export function limitRoutes(kit: Kit) {
   kit.post(
     '/limit-changes',
     {
-      permission: 'limits.propose',
+      permission: 'limits.propose', stepUp: true,
       idempotent: true,
       status: 201,
       body: z.strictObject({
@@ -48,7 +48,7 @@ export function limitRoutes(kit: Kit) {
   kit.post(
     '/limit-changes/:id/decision',
     {
-      permission: 'limits.approve',
+      permission: 'limits.approve', stepUp: true,
       idempotent: true,
       body: z.strictObject({ approve: z.boolean(), note: z.string().trim().min(3).max(500) }),
     },

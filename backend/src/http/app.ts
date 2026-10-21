@@ -59,7 +59,7 @@ export function buildApp(deps: { db: Db; config: Config; adapters: Adapters; v1?
       level: process.env.LOG_LEVEL ?? 'info',
       // Nunca se escriben en los logs contraseñas, cookies, tokens ni llaves.
       redact: {
-        paths: ['req.headers.authorization', 'req.headers.cookie', 'req.headers["x-csrf-token"]', 'res.headers["set-cookie"]'],
+        paths: ['req.headers.authorization', 'req.headers.cookie', 'req.headers["x-csrf-token"]', 'req.headers["x-mfa-code"]', 'res.headers["set-cookie"]'],
         censor: '[oculto]',
       },
     },

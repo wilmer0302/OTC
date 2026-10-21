@@ -232,15 +232,10 @@ export async function startMfaEnrollment(tx: Tx, cfg: IdentityConfig, resolved: 
  * Verifica el código de 6 dígitos. Si es correcto, la sesión vieja se revoca y nace una nueva
  * con el segundo factor cumplido (cambio de identificador tras subir de privilegio).
  */
-export async function verifyMfa(
-  tx: Tx,
-  cfg: IdentityConfig,
-  resolved: ResolvedSession,
-  code: string,
-  now: Date,
-  meta: { ip?: string; userAgent?: string },
-): Promise<SessionTokens | null> {
-  const userId = resolved.actor.id;
+/**
+ * Verifica un código del segundo factor y lo marca como usado: el mismo código no sirve dos veces.
+ */
+async function checkTotp(tx: Tx, cfg: IdentityConfig, userId: string, code: string, now: Date) {
   const f = await tx.query('SELECT secret_enc, confirmed_at, last_used_step FROM otc.mfa_factors WHERE user_id = $1 FOR UPDATE', [
     userId,
   ]);
@@ -254,14 +249,44 @@ export async function verifyMfa(
     now,
     factor.last_used_step === null ? null : BigInt(factor.last_used_step),
   );
-  if (step === null) {
-    await audit(tx, userId, 'auth.mfa_failed', 'session', resolved.session.id, {});
-    return null;
-  }
+  if (step === null) return { ok: false as const };
   await tx.query(
     `UPDATE otc.mfa_factors SET last_used_step = $2, confirmed_at = COALESCE(confirmed_at, $3) WHERE user_id = $1`,
     [userId, step.toString(), now],
   );
+  return { ok: true as const, confirmedAt: factor.confirmed_at as Date | null };
+}
+
+/**
+ * Confirmación reforzada: una aprobación o un cambio de configuración pide otra vez el código del
+ * segundo factor, aunque la sesión ya lo haya completado.
+ */
+export async function verifyStepUp(tx: Tx, cfg: IdentityConfig, actor: Actor, code: string | undefined, now: Date): Promise<void> {
+  if (!code || !/^\d{6}$/.test(code)) {
+    throw new DomainError('STEP_UP_REQUIRED', 'Esta acción pide de nuevo tu código del segundo factor (cabecera X-MFA-Code)', 401);
+  }
+  const checked = await checkTotp(tx, cfg, actor.id, code, now);
+  if (!checked.ok) {
+    await audit(tx, actor.id, 'auth.step_up_failed', 'user', actor.id, {});
+    throw new DomainError('STEP_UP_FAILED', 'El código del segundo factor no es válido o ya se usó', 401);
+  }
+}
+
+export async function verifyMfa(
+  tx: Tx,
+  cfg: IdentityConfig,
+  resolved: ResolvedSession,
+  code: string,
+  now: Date,
+  meta: { ip?: string; userAgent?: string },
+): Promise<SessionTokens | null> {
+  const userId = resolved.actor.id;
+  const checked = await checkTotp(tx, cfg, userId, code, now);
+  if (!checked.ok) {
+    await audit(tx, userId, 'auth.mfa_failed', 'session', resolved.session.id, {});
+    return null;
+  }
+  const factor = { confirmed_at: checked.confirmedAt };
   await tx.query(`UPDATE otc.sessions SET revoked_at = $2, revoked_reason = 'segundo factor completado' WHERE id = $1`, [
     resolved.session.id,
     now,

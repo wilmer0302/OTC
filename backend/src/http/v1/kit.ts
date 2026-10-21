@@ -7,6 +7,7 @@ import { authorize, type Permission } from '../../modules/identity/permissions.j
 import {
   csrfMatches,
   resolveSession,
+  verifyStepUp,
   type IdentityConfig,
   type ResolvedSession,
 } from '../../modules/identity/service.js';
@@ -42,6 +43,8 @@ interface WriteOptions<S extends z.ZodType> {
   body?: S;
   idempotent?: boolean;
   status?: number;
+  /** Aprobaciones y cambios de configuración: pide otra vez el código del segundo factor. */
+  stepUp?: boolean;
 }
 
 export function makeKit(app: FastifyInstance, deps: V1Deps) {
@@ -78,7 +81,7 @@ export function makeKit(app: FastifyInstance, deps: V1Deps) {
 
   /**
    * Escritura: sesión, segundo factor, token anti-CSRF, permiso, validación estricta del cuerpo,
-   * una sola transacción y, si se pide, clave de idempotencia obligatoria.
+   * una sola transacción y, si se pide, clave de idempotencia obligatoria y confirmación reforzada.
    */
   function post<S extends z.ZodType, R>(path: string, opts: WriteOptions<S>, handler: Handler<z.infer<S>, R>) {
     app.post(path, async (req: FastifyRequest, reply: FastifyReply) => {
@@ -92,6 +95,8 @@ export function makeKit(app: FastifyInstance, deps: V1Deps) {
       const status = opts.status ?? 200;
       const outcome = await inTransaction(deps.db, async (tx) => {
         const execute = async () => {
+          // Dentro de la ejecución: una repetición con la misma clave no vuelve a pedir el código.
+          if (opts.stepUp) await verifyStepUp(tx, deps.identity, actor, req.headers['x-mfa-code'] as string | undefined, deps.now());
           const result = await handler(ctxFor(tx, actor), body, req);
           if (result instanceof CommittedFailure) {
             return {

@@ -1,11 +1,23 @@
 import type { Db, Tx } from '../../db/pool.js';
-import { DomainError, notFound } from '../../domain/errors.js';
+import { DomainError, invalid, notFound } from '../../domain/errors.js';
+import { openCase, resolveCasesFor } from '../../platform/cases.js';
 import { actorDbId, type Ctx } from '../../platform/context.js';
-import { history, recordTransition } from '../../platform/events.js';
+import { history, recordAction, recordTransition } from '../../platform/events.js';
 import { D } from '../../platform/money.js';
 import { mask } from '../counterparties/domain.js';
 import { requiredApprovals, type ApprovalPolicy, type Usage } from '../limits/domain.js';
-import { defaultAccount, openReservationFor, releaseReservation, reserve, type AccountRow } from '../liquidity/service.js';
+import { authorize } from '../identity/permissions.js';
+import {
+  defaultAccount,
+  lockReservation,
+  openReservationFor,
+  releaseReservation,
+  reserve,
+  unlockReservation,
+  type AccountRow,
+} from '../liquidity/service.js';
+import { IN_FLIGHT } from '../transfers/domain.js';
+import { createCollection, createDelivery, lockTransfer, moveTransfer, transfersOf } from '../transfers/service.js';
 import { clientView, type Side } from '../pricing/domain.js';
 import { orderCanMove, OPEN_ORDER_STATUSES, type OrderStatus } from './domain.js';
 
@@ -175,6 +187,146 @@ export async function expireOrders(ctx: Ctx): Promise<string[]> {
   return due.rows.map((o) => o.id);
 }
 
+// ---------- Ciclo de la orden ----------
+
+/**
+ * El cliente reporta su pago con la referencia bancaria o el hash. La orden pasa a Cobro en
+ * verificación; la confirmación llega después, con evidencia del banco o de la red.
+ * Si el reporte llega después del plazo, la orden no se da por vencida: pasa a revisión, porque
+ * el dinero pudo haber llegado.
+ */
+export async function registerPayment(ctx: Ctx, orderId: string, input: { reference: string; fromRef?: string | null }) {
+  authorize(ctx.actor, 'payment.register');
+  const order = await lockOrder(ctx.tx, orderId);
+  if (order.status !== 'CREADA') {
+    throw new DomainError('INVALID_STATE', `La orden ${order.number} está ${order.status}; el pago solo se registra en una orden Creada`);
+  }
+  const transfer = await createCollection(ctx, order, input.reference.trim(), input.fromRef?.trim() || null);
+  if (ctx.now().getTime() >= new Date(order.payment_deadline).getTime()) {
+    const moved = await sendToReview(ctx, order, 'Pago reportado después del plazo de pago');
+    return { order: moved, transfer };
+  }
+  const moved = await moveOrder(ctx, order, 'COBRO_EN_VERIFICACION', null, { transferId: transfer.id, reference: transfer.external_ref });
+  return { order: moved, transfer };
+}
+
+/** El banco o la red confirmó el cobro (lo invoca el módulo de confirmaciones, con la evidencia). */
+export async function onCollectionConfirmed(ctx: Ctx, orderId: string, evidence: Record<string, unknown>) {
+  const order = await lockOrder(ctx.tx, orderId);
+  if (order.status !== 'COBRO_EN_VERIFICACION') return order; // en revisión u otro estado: decide un responsable
+  return moveOrder(ctx, order, 'COBRO_CONFIRMADO', 'Cobro confirmado con evidencia externa', evidence);
+}
+
+/**
+ * Aprobación de la entrega. Cada persona aprueba una vez; cuando se completan las que exige la
+ * política con la que nació la orden, la orden queda autorizada, nace la transferencia de entrega
+ * y la reserva queda bloqueada para ese envío.
+ */
+export async function approveDelivery(ctx: Ctx, orderId: string, note: string | null) {
+  authorize(ctx.actor, 'order.approve');
+  const order = await lockOrder(ctx.tx, orderId);
+  if (order.status !== 'COBRO_CONFIRMADO') {
+    throw new DomainError('INVALID_STATE', `La orden ${order.number} está ${order.status}; se aprueba con el cobro confirmado`);
+  }
+  const ins = await ctx.tx.query(
+    `INSERT INTO otc.order_approvals (order_id, approved_by, note, created_at) VALUES ($1,$2,$3,$4)
+     ON CONFLICT (order_id, approved_by) DO NOTHING RETURNING id`,
+    [order.id, ctx.actor.id, note, ctx.now()],
+  );
+  if (!ins.rowCount) throw new DomainError('ALREADY_APPROVED', 'Ya aprobaste esta orden; la segunda aprobación debe hacerla otra persona');
+  const count = (await ctx.tx.query<{ n: number }>('SELECT count(*)::int AS n FROM otc.order_approvals WHERE order_id = $1', [order.id])).rows[0].n;
+  await recordAction(ctx, 'order.approve', 'order', order.id, {
+    approval: count,
+    required: order.required_approvals,
+    note,
+  });
+  if (count < order.required_approvals) return { order, approvals: count, required: order.required_approvals, transfer: null };
+  const authorized = await moveOrder(ctx, order, 'ENTREGA_AUTORIZADA', null, { approvals: count });
+  const transfer = await createDelivery(ctx, authorized, null);
+  const reservation = await openReservationFor(ctx.tx, order.id);
+  if (!reservation) throw new Error(`La orden ${order.number} no tiene reserva abierta`);
+  await lockReservation(ctx, reservation.id, transfer.id);
+  return { order: authorized, approvals: count, required: order.required_approvals, transfer };
+}
+
+async function sendToReview(ctx: Ctx, order: OrderRow, reason: string): Promise<OrderRow> {
+  if (!orderCanMove(order.status, 'EN_REVISION')) {
+    throw new DomainError('INVALID_TRANSITION', `La orden ${order.number} está ${order.status}; no se puede enviar a revisión`);
+  }
+  const r = await ctx.tx.query<OrderRow>(
+    `UPDATE otc.orders SET status = 'EN_REVISION', review_from = status, status_reason = $2, updated_at = $3 WHERE id = $1 RETURNING *`,
+    [order.id, reason, ctx.now()],
+  );
+  await recordTransition(ctx, 'order', order.id, order.status, 'EN_REVISION', reason);
+  await openCase(ctx, 'order', order.id, 'REVISION', reason);
+  return r.rows[0];
+}
+
+/** Cualquiera puede mandar una orden a revisión: la congela con sus reservas hasta que se resuelva. */
+export async function markForReview(ctx: Ctx, orderId: string, reason: string) {
+  authorize(ctx.actor, 'order.review');
+  if (!reason.trim()) throw invalid('Indica qué no cuadra');
+  return sendToReview(ctx, await lockOrder(ctx.tx, orderId), reason.trim());
+}
+
+/**
+ * El administrador resuelve la revisión: la orden vuelve al estado desde el que entró, o se
+ * cancela. Solo se cancela si no hay dinero en movimiento; si el cliente ya pagó, corresponde
+ * una devolución con su propia transferencia.
+ */
+export async function resolveReview(ctx: Ctx, orderId: string, action: 'RESUME' | 'CANCEL', note: string) {
+  authorize(ctx.actor, 'review.resolve');
+  if (!note.trim()) throw invalid('Explica la resolución');
+  const order = await lockOrder(ctx.tx, orderId);
+  if (order.status !== 'EN_REVISION') throw new DomainError('INVALID_STATE', `La orden ${order.number} no está en revisión`);
+  let result: OrderRow;
+  if (action === 'RESUME') {
+    const back = order.review_from as OrderStatus;
+    const r = await ctx.tx.query<OrderRow>(
+      `UPDATE otc.orders SET status = $2, review_from = NULL, status_reason = $3, updated_at = $4 WHERE id = $1 RETURNING *`,
+      [order.id, back, note.trim(), ctx.now()],
+    );
+    await recordTransition(ctx, 'order', order.id, 'EN_REVISION', back, note.trim());
+    result = r.rows[0];
+  } else {
+    result = await cancelWithoutMoney(ctx, order, note.trim());
+  }
+  await resolveCasesFor(ctx, 'order', order.id, `${action === 'RESUME' ? 'Reanudada' : 'Cancelada'}: ${note.trim()}`);
+  return result;
+}
+
+/** El operador anula una orden antes de que el cliente reporte su pago. */
+export async function cancelOrder(ctx: Ctx, orderId: string, reason: string) {
+  authorize(ctx.actor, 'order.cancel');
+  if (!reason.trim()) throw invalid('Indica el motivo de la cancelación');
+  const order = await lockOrder(ctx.tx, orderId);
+  if (order.status !== 'CREADA') {
+    throw new DomainError(
+      'INVALID_STATE',
+      `La orden ${order.number} está ${order.status}. Después de reportado el pago no se cancela: envíala a revisión`,
+    );
+  }
+  return cancelWithoutMoney(ctx, order, reason.trim());
+}
+
+async function cancelWithoutMoney(ctx: Ctx, order: OrderRow, reason: string): Promise<OrderRow> {
+  const transfers = await transfersOf(ctx.tx, order.id);
+  const moving = transfers.filter((t) => IN_FLIGHT.includes(t.status));
+  if (moving.length) {
+    throw new DomainError(
+      'MONEY_IN_FLIGHT',
+      `La orden ${order.number} tiene movimientos reportados o en curso (${moving.map((t) => `transferencia ${t.number} ${t.status}`).join(', ')}); resuélvelos o haz una devolución`,
+    );
+  }
+  for (const t of transfers.filter((x) => !['FALLIDA', 'CANCELADA'].includes(x.status))) {
+    await moveTransfer(ctx, await lockTransfer(ctx.tx, t.id), 'CANCELADA', `Orden cancelada: ${reason}`);
+  }
+  const res = await openReservationFor(ctx.tx, order.id);
+  if (res?.status === 'LOCKED') await unlockReservation(ctx, res.id, 'Entrega cancelada');
+  if (res) await releaseReservation(ctx, res.id, `Orden ${order.number} cancelada`);
+  return moveOrder(ctx, order, 'CANCELADA', reason);
+}
+
 export async function getOrder(ctx: Pick<Ctx, 'tx'>, id: string) {
   const r = await ctx.tx.query(
     `SELECT o.*, v.legal_name AS counterparty_name, q.trm_id, q.trm_rate, q.rule_id, q.margin_cop, q.commission_rate,
@@ -193,7 +345,18 @@ export async function getOrder(ctx: Pick<Ctx, 'tx'>, id: string) {
      WHERE r.order_id = $1 ORDER BY r.created_at`,
     [id],
   );
-  return { ...r.rows[0], reservations: reservation.rows, history: await history(ctx, 'order', id) };
+  const approvals = await ctx.tx.query(
+    `SELECT a.created_at, a.note, u.full_name AS approved_by_name FROM otc.order_approvals a
+     JOIN public.users u ON u.id = a.approved_by WHERE a.order_id = $1 ORDER BY a.id`,
+    [id],
+  );
+  return {
+    ...r.rows[0],
+    reservations: reservation.rows,
+    approvals: approvals.rows,
+    transfers: await transfersOf(ctx.tx, id),
+    history: await history(ctx, 'order', id),
+  };
 }
 
 export async function listOrders(ctx: Pick<Ctx, 'tx'>, filter: { status?: OrderStatus; counterpartyId?: string }) {

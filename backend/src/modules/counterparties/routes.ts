@@ -63,7 +63,7 @@ export function counterpartyRoutes(kit: Kit) {
 
   kit.post(
     '/counterparties/:id/kyc',
-    { permission: 'kyc.decide', idempotent: true, body: z.strictObject({ status: KYC, note: text(1000) }) },
+    { permission: 'kyc.decide', stepUp: true, idempotent: true, body: z.strictObject({ status: KYC, note: text(1000) }) },
     (ctx, body, req) => decideKyc(ctx, uuid.parse(req.params).id, body.status, body.note),
   );
 
@@ -88,13 +88,13 @@ export function counterpartyRoutes(kit: Kit) {
 
   kit.post(
     '/destinations/:id/decision',
-    { permission: 'destination.decide', idempotent: true, body: z.strictObject({ approve: z.boolean(), note: text(500) }) },
+    { permission: 'destination.decide', stepUp: true, idempotent: true, body: z.strictObject({ approve: z.boolean(), note: text(500) }) },
     (ctx, body, req) => decideDestination(ctx, uuid.parse(req.params).id, body.approve, body.note),
   );
 
   kit.post(
     '/destinations/:id/revoke',
-    { permission: 'destination.decide', idempotent: true, body: z.strictObject({ reason: text(500) }) },
+    { permission: 'destination.decide', stepUp: true, idempotent: true, body: z.strictObject({ reason: text(500) }) },
     (ctx, body, req) => revokeDestination(ctx, uuid.parse(req.params).id, body.reason),
   );
 }

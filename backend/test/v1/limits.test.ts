@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { checkLimits, requiredApprovals, ZERO_USAGE, type EffectiveLimits } from '../../src/modules/limits/domain.js';
 import { decideLimitChange, effectiveLimits, proposeLimitChange } from '../../src/modules/limits/service.js';
 import { D } from '../../src/platform/money.js';
-import { as, call, expectCode, httpLogin, newKey, setupEnv, type Env } from './helpers.js';
+import { as, call, expectCode, httpLogin, newKey, setupEnv, stepUp, type Env } from './helpers.js';
 
 const limits: EffectiveLimits = {
   orderMaxUsdt: new D(200000),
@@ -106,12 +106,12 @@ describe('cambios de límites con segunda firma', () => {
       'POST',
       '/limit-changes',
       { kind: 'APPROVAL_POLICY', value: { policy: 'ALL' }, reason: 'Toda entrega con dos firmas (prueba)' },
-      { 'idempotency-key': newKey() },
+      { 'idempotency-key': newKey(), ...stepUp(env, 'admin') },
     );
     expect(p.status).toBe(201);
-    const dup = await call(env, admin, 'POST', '/limit-changes', { kind: 'APPROVAL_POLICY', value: { policy: 'SINGLE' }, reason: 'otra' }, { 'idempotency-key': newKey() });
+    const dup = await call(env, admin, 'POST', '/limit-changes', { kind: 'APPROVAL_POLICY', value: { policy: 'SINGLE' }, reason: 'otra' }, { 'idempotency-key': newKey(), ...stepUp(env, 'admin') });
     expect(dup.body.code).toBe('PENDING_PROPOSAL');
-    const d = await call(env, admin2, 'POST', `/limit-changes/${p.body.id}/decision`, { approve: true, note: 'De acuerdo' }, { 'idempotency-key': newKey() });
+    const d = await call(env, admin2, 'POST', `/limit-changes/${p.body.id}/decision`, { approve: true, note: 'De acuerdo' }, { 'idempotency-key': newKey(), ...stepUp(env, 'admin2') });
     expect(d.body.status).toBe('VIGENTE');
     const l = await call(env, admin, 'GET', '/limits');
     expect(l.body.approval).toEqual({ policy: 'ALL' });

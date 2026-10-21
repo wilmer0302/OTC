@@ -100,7 +100,7 @@ export function identityRoutes(app: FastifyInstance, kit: Kit, deps: V1Deps) {
   kit.post(
     '/users',
     {
-      permission: 'users.manage',
+      permission: 'users.manage', stepUp: true,
       idempotent: true,
       status: 201,
       body: z.strictObject({
@@ -115,16 +115,16 @@ export function identityRoutes(app: FastifyInstance, kit: Kit, deps: V1Deps) {
 
   kit.post(
     '/users/:id/roles',
-    { permission: 'users.manage', body: z.strictObject({ roles: roleList }) },
+    { permission: 'users.manage', stepUp: true, body: z.strictObject({ roles: roleList }) },
     (ctx, body, req) => setRoles(ctx, id.parse(req.params).id, body.roles),
   );
-  kit.post('/users/:id/disable', { permission: 'users.manage', body: reason }, (ctx, body, req) =>
+  kit.post('/users/:id/disable', { permission: 'users.manage', stepUp: true, body: reason }, (ctx, body, req) =>
     setActive(ctx, id.parse(req.params).id, false, body.reason),
   );
-  kit.post('/users/:id/enable', { permission: 'users.manage', body: reason }, (ctx, body, req) =>
+  kit.post('/users/:id/enable', { permission: 'users.manage', stepUp: true, body: reason }, (ctx, body, req) =>
     setActive(ctx, id.parse(req.params).id, true, body.reason),
   );
-  kit.post('/users/:id/mfa-reset', { permission: 'users.manage', body: reason }, (ctx, body, req) =>
+  kit.post('/users/:id/mfa-reset', { permission: 'users.manage', stepUp: true, body: reason }, (ctx, body, req) =>
     resetMfa(ctx, id.parse(req.params).id, body.reason),
   );
 
@@ -134,7 +134,7 @@ export function identityRoutes(app: FastifyInstance, kit: Kit, deps: V1Deps) {
   kit.post(
     '/settings',
     {
-      permission: 'settings.manage',
+      permission: 'settings.manage', stepUp: true,
       idempotent: true,
       body: z.strictObject({
         reason: z.string().trim().min(3).max(500),

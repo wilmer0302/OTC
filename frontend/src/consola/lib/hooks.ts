@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+const CHANGED = 'otc:datos-cambiaron';
+/** Avisa a las vistas abiertas (menú, inicio, listas) que una acción cambió datos y deben recargarse. */
+export const notifyChange = () => window.dispatchEvent(new Event(CHANGED));
+
 /** Carga datos de la API y permite recargarlos. Con `refreshMs` se refresca solo mientras la pestaña está visible. */
 export function useQuery<T>(load: (() => Promise<T>) | null, deps: unknown[], opts: { refreshMs?: number } = {}) {
   const [data, setData] = useState<T | null>(null);
@@ -36,6 +40,12 @@ export function useQuery<T>(load: (() => Promise<T>) | null, deps: unknown[], op
     reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
+
+  useEffect(() => {
+    const on = () => reload();
+    window.addEventListener(CHANGED, on);
+    return () => window.removeEventListener(CHANGED, on);
+  }, [reload]);
 
   useEffect(() => {
     if (!opts.refreshMs) return;

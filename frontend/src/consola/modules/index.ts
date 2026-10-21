@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react';
 import type { Route } from '../app/router';
+import Inicio from './inicio/Inicio';
 import { Pending } from './Pending';
 
 export interface PageProps {
@@ -8,7 +9,7 @@ export interface PageProps {
 
 // Un componente por módulo del menú. Cada módulo vive en su carpeta y solo usa la API y la UI comunes.
 export const MODULES: Record<string, ComponentType<PageProps>> = {
-  inicio: Pending,
+  inicio: Inicio,
   solicitudes: Pending,
   cotizaciones: Pending,
   ordenes: Pending,

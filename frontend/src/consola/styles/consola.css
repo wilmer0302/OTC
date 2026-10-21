@@ -351,3 +351,32 @@ textarea.input { resize: vertical; min-height: 64px; }
   .modal-foot .btn { width: 100%; }
   .page-header h1 { font-size: 19px; }
 }
+
+/* ---------- Inicio ---------- */
+.queue-list { list-style: none; margin: -6px 0; padding: 0; }
+.queue-list a { display: flex; align-items: center; gap: 12px; padding: 9px 2px; text-decoration: none; color: var(--ink); border-bottom: 1px solid var(--border); }
+.queue-list li:last-child a { border-bottom: none; }
+.queue-list a:hover { color: var(--accent); }
+.queue-count { min-width: 30px; text-align: center; font-weight: 700; padding: 2px 6px; border-radius: 6px; font-variant-numeric: tabular-nums; }
+.queue-count.tone-danger { background: var(--danger-soft); color: var(--danger); }
+.queue-count.tone-warning { background: var(--warning-soft); color: var(--warning); }
+.queue-count.tone-info { background: var(--info-soft); color: var(--info); }
+.queue-go { margin-left: auto; color: var(--muted); }
+.status-bars { list-style: none; margin: 0; padding: 0; }
+.status-bars a { display: grid; grid-template-columns: 220px 1fr 36px; align-items: center; gap: 12px; padding: 5px 0; text-decoration: none; color: inherit; }
+.status-bars a:hover .badge { text-decoration: underline; }
+.bar { height: 8px; background: var(--neutral-soft); border-radius: 4px; overflow: hidden; }
+.bar-fill { display: block; height: 100%; border-radius: 4px; background: var(--neutral); }
+.bar-fill.tone-info { background: var(--info); }
+.bar-fill.tone-progress { background: var(--progress); }
+.bar-fill.tone-success { background: var(--success); }
+.bar-fill.tone-warning { background: #d97706; }
+.bar-fill.tone-danger { background: var(--danger); }
+.status-bars strong { text-align: right; }
+.status-bars .badge { justify-self: start; }
+.chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip-link { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px 4px 4px; border: 1px solid var(--border); border-radius: 999px; text-decoration: none; color: var(--ink); }
+.chip-link:hover { border-color: var(--accent); }
+@media (max-width: 720px) {
+  .status-bars a { grid-template-columns: 1fr 60px 30px; }
+}

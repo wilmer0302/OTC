@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { newIdempotencyKey } from '../api/client';
+import { notifyChange } from '../lib/hooks';
 import { Button } from './Button';
 import { ErrorNotice } from './Feedback';
 import { Checkbox, Field, Input, Textarea } from './Form';
@@ -82,6 +83,7 @@ export function ConfirmDialog({ config, onClose, onDone }: { config: ConfirmConf
     setError(null);
     try {
       const result = await config.onConfirm({ reason: reason.trim(), mfaCode: config.stepUp ? code : undefined, idempotencyKey: key });
+      notifyChange();
       onDone?.(result);
       onClose();
     } catch (e) {

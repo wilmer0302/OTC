@@ -246,21 +246,20 @@ export async function getCounterparty(ctx: Ctx, id: string) {
     [id],
   );
   if (!r.rowCount) throw notFound('La contraparte');
-  const [versions, kyc, destinations] = await Promise.all([
-    ctx.tx.query(
-      `SELECT v.version, v.legal_name, v.email, v.phone, v.notes, v.reason, v.created_at, u.full_name AS created_by_name
-       FROM otc.counterparty_versions v JOIN public.users u ON u.id = v.created_by
-       WHERE counterparty_id = $1 ORDER BY version DESC`,
-      [id],
-    ),
-    ctx.tx.query(
-      `SELECT k.from_status, k.to_status, k.note, k.created_at, u.full_name AS reviewed_by_name
-       FROM otc.kyc_reviews k JOIN public.users u ON u.id = k.reviewed_by
-       WHERE counterparty_id = $1 ORDER BY k.created_at DESC`,
-      [id],
-    ),
-    ctx.tx.query('SELECT * FROM otc.destinations WHERE counterparty_id = $1 ORDER BY proposed_at DESC', [id]),
-  ]);
+  // Una transacción usa una sola conexión: las consultas van una tras otra.
+  const versions = await ctx.tx.query(
+    `SELECT v.version, v.legal_name, v.email, v.phone, v.notes, v.reason, v.created_at, u.full_name AS created_by_name
+     FROM otc.counterparty_versions v JOIN public.users u ON u.id = v.created_by
+     WHERE counterparty_id = $1 ORDER BY version DESC`,
+    [id],
+  );
+  const kyc = await ctx.tx.query(
+    `SELECT k.from_status, k.to_status, k.note, k.created_at, u.full_name AS reviewed_by_name
+     FROM otc.kyc_reviews k JOIN public.users u ON u.id = k.reviewed_by
+     WHERE counterparty_id = $1 ORDER BY k.created_at DESC`,
+    [id],
+  );
+  const destinations = await ctx.tx.query('SELECT * FROM otc.destinations WHERE counterparty_id = $1 ORDER BY proposed_at DESC', [id]);
   return {
     ...r.rows[0],
     versions: versions.rows,

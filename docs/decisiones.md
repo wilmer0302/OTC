@@ -18,6 +18,13 @@ Fecha de inicio: 2026-10-20. El diseño completo está en el documento de Fase 1
 | 10 | Auditoría solo-agregar con hash encadenado; asientos contables inmutables (triggers) | Detectar alteraciones | Implementada |
 | 11 | Operaciones de dinero idempotentes (`Idempotency-Key`) y referencias únicas | Un reintento no duplica pagos | Implementada |
 | 12 | `APP_MODE=PRODUCTION` se niega a arrancar | No hay adaptadores reales; evita uso accidental | Implementada |
+| 13 | Backend v1 en el esquema `otc` y bajo `/api/v1`; la demo anterior (`/api`) sigue funcionando hasta que el frontend migre | No romper lo existente (principio 2) | Implementada (fase 4) |
+| 14 | Saldos de liquidez: libro de doble partida con cuadre verificado por la base al confirmar; saldo real nunca negativo; reservas con bloqueo de cuenta | Dos órdenes nunca usan el mismo saldo | Implementada (fase 4) |
+| 15 | Reversos y ajustes sin endpoint propio: solo los hacen los flujos de órdenes y conciliación (ajustes con doble firma) | Nadie mueve saldos a mano | Implementada (fase 4) |
+| 16 | Una solicitud que falla la validación se guarda como Rechazada con todos los motivos (no se descarta) | Trazabilidad de lo que pidió el cliente | Implementada (fase 4) |
+| 17 | Aceptar una cotización serializa con un bloqueo global de límites; la reserva y la orden se crean en la misma transacción | Dos aceptaciones simultáneas no superan límites ni liquidez | Implementada (fase 4) |
+| 18 | Una solicitud validada que vence sin cotización pasa a Cancelada (la especificación reserva Vencida para las cotizadas) | La especificación no permite Validada → Vencida | Implementada (fase 4), revisable |
+| 19 | Proceso trabajador separado (`worker`) para vencimientos y seguimiento, misma imagen que el backend | Arquitectura aprobada en la fase 3 | Implementada (fase 4) |
 
 ## Supuestos abiertos
 
@@ -29,7 +36,7 @@ Fecha de inicio: 2026-10-20. El diseño completo está en el documento de Fase 1
 
 ## Pendiente para versiones siguientes
 
-- Segundo factor de autenticación (diseñado, no incluido en la demo).
+- Segundo factor de autenticación: implementado en `/api/v1` (fase 4); la demo anterior aún no lo usa.
 - Adaptadores reales: TRM oficial, nodos o indexadores de Tron y BSC, Bancolombia.
 - Integración con Trezor para firmar salidas.
 - Política de qué hacer si el mercado USDT/COP se aleja de la TRM durante el día.

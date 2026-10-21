@@ -152,3 +152,54 @@ export async function call(
   const res = await env.app.inject({ method, url: `/api/v1${url}`, payload: payload as object, headers });
   return { status: res.statusCode, body: res.body ? res.json() : null, headers: res.headers };
 }
+
+// ---------- Órdenes de prueba ----------
+
+/**
+ * Inserta una solicitud, una cotización y una orden FICTICIAS directamente en la base, sin reservar
+ * liquidez, para probar piezas que necesitan una orden existente (reservas, asientos).
+ * Los flujos reales se prueban por el servicio de cotizaciones.
+ */
+export async function fixtureOrder(env: Env, opts: { side?: 'BUY' | 'SELL'; usdt?: string } = {}): Promise<string> {
+  const side = opts.side ?? 'SELL';
+  const usdt = opts.usdt ?? '1000';
+  const q = (sql: string, p: unknown[] = []) => env.db.query(sql, p);
+  const cp = (await q(`SELECT id FROM otc.counterparties WHERE document_number = '900000001'`)).rows[0].id;
+  const dest = (await q(`SELECT id FROM otc.destinations WHERE counterparty_id = $1 AND rail = $2 AND status = 'APROBADO'`, [cp, side === 'SELL' ? 'TRON' : 'BANK'])).rows[0].id;
+  let trm = (await q(`SELECT id FROM otc.trm_rates WHERE source = 'Fixture de prueba'`)).rows[0]?.id;
+  if (!trm) {
+    trm = (await q(`INSERT INTO otc.trm_rates (valid_date, rate, source, simulated) VALUES ('2000-01-01', 4000, 'Fixture de prueba', true) RETURNING id`)).rows[0].id;
+  }
+  const rule = (await q('SELECT id FROM otc.pricing_rules ORDER BY seq LIMIT 1')).rows[0].id;
+  const now = env.clock.now();
+  const req = (
+    await q(
+      `INSERT INTO otc.requests (counterparty_id, side, usdt_amount, network, destination_id, status, expires_at, created_at, updated_at)
+       VALUES ($1,$2,$3,'TRON',$4,'COTIZADA',$5,$5,$5) RETURNING id`,
+      [cp, side, usdt, dest, now],
+    )
+  ).rows[0].id;
+  const quote = (
+    await q(
+      `INSERT INTO otc.quotes (request_id, side, usdt_amount, trm_id, trm_rate, rule_id, margin_cop, commission_rate, base_price_cop,
+         unit_price_cop, subtotal_cop, commission_cop, total_cop, margin_total_cop, status, expires_at, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,4000,$5,15,0.001,4015,4019.02,4015*$3::numeric,4.02*$3::numeric,4019.02*$3::numeric,15*$3::numeric,'VIGENTE',$6,$6,$6)
+       RETURNING id`,
+      [req, side, usdt, trm, rule, now],
+    )
+  ).rows[0].id;
+  const accounts = (await q(`SELECT code, id FROM otc.accounts WHERE code IN ('BANCOLOMBIA_COP_DEMO','WALLET_TRON_DEMO')`)).rows;
+  const id = (c: string) => accounts.find((a) => a.code === c)!.id;
+  const [receive, deliver] = side === 'SELL' ? [id('BANCOLOMBIA_COP_DEMO'), id('WALLET_TRON_DEMO')] : [id('WALLET_TRON_DEMO'), id('BANCOLOMBIA_COP_DEMO')];
+  return (
+    await q(
+      `INSERT INTO otc.orders (quote_id, request_id, counterparty_id, side, network, usdt_amount, unit_price_cop, base_price_cop, subtotal_cop,
+         commission_cop, total_cop, margin_total_cop, receive_account_id, deliver_account_id, destination_id, approval_policy,
+         required_approvals, status, payment_deadline, created_at, updated_at)
+       SELECT id, request_id, $2, side, 'TRON', usdt_amount, unit_price_cop, base_price_cop, round(subtotal_cop), round(commission_cop),
+              round(total_cop), round(margin_total_cop), $3, $4, $5, '{"policy":"SINGLE"}', 1, 'CREADA', $6, $6, $6
+       FROM otc.quotes WHERE id = $1 RETURNING id`,
+      [quote, cp, receive, deliver, dest, now],
+    )
+  ).rows[0].id;
+}

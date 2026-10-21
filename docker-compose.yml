@@ -17,7 +17,7 @@ services:
 
   backend:
     build: ./backend
-    environment:
+    environment: &backend_env
       APP_MODE: DEMO
       DATABASE_URL: postgres://otc:${DB_PASSWORD:-otc_demo}@db:5432/otc
       JWT_SECRET: ${JWT_SECRET:-solo-para-demo-local-cambiar-en-cualquier-otro-entorno}
@@ -30,6 +30,16 @@ services:
     depends_on:
       db:
         condition: service_healthy
+
+  # Trabajador: vencimientos (cotizaciones, solicitudes, órdenes sin pago) y seguimiento.
+  # Misma imagen que el backend, otro proceso; no expone puertos.
+  worker:
+    build: ./backend
+    command: ["node", "dist/worker.js"]
+    environment: *backend_env
+    depends_on:
+      backend:
+        condition: service_started
 
   frontend:
     build: ./frontend

@@ -16,7 +16,7 @@ import {
   verifyBalances,
 } from '../../src/modules/liquidity/service.js';
 import { D } from '../../src/platform/money.js';
-import { as, call, expectCode, httpLogin, newKey, setupEnv, type Env } from './helpers.js';
+import { as, call, expectCode, fixtureOrder, httpLogin, newKey, setupEnv, type Env } from './helpers.js';
 
 describe('reglas del libro y de las reservas', () => {
   it('un asiento cuadra por activo y necesita dos líneas', () => {
@@ -113,10 +113,11 @@ describe('saldos, libro y reservas', () => {
 
   it('reserva lo disponible y explica cuando no alcanza', async () => {
     const bsc = await defaultAccount(env.db, 'USDT', 'BSC');
-    const order = randomUUID();
+    const order = await fixtureOrder(env);
     const id = await as(env, 'trader', (ctx) => reserve(ctx, { accountId: bsc.id, orderId: order, amount: new D(60000), reason: 'Orden ficticia' }));
+    const other = await fixtureOrder(env);
     const err = await expectCode(
-      as(env, 'trader', (ctx) => reserve(ctx, { accountId: bsc.id, orderId: randomUUID(), amount: new D('40000.000001'), reason: 'Orden ficticia' })),
+      as(env, 'trader', (ctx) => reserve(ctx, { accountId: bsc.id, orderId: other, amount: new D('40000.000001'), reason: 'Orden ficticia' })),
       'INSUFFICIENT_LIQUIDITY',
     );
     expect((err as Error).message).toBe(
@@ -130,7 +131,7 @@ describe('saldos, libro y reservas', () => {
 
   it('el ciclo completo: reservar, atar a la transferencia, liberar si falla, consumir con la entrega', async () => {
     const tron = await defaultAccount(env.db, 'USDT', 'TRON');
-    const order = randomUUID();
+    const order = await fixtureOrder(env);
     const id = await as(env, 'trader', (ctx) => reserve(ctx, { accountId: tron.id, orderId: order, amount: new D(1000), reason: 'Orden ficticia' }));
     await expectCode(as(env, 'tesorero2', (ctx) => consumeReservation(ctx, id)), 'INVALID_TRANSITION');
     await as(env, 'tesorero2', (ctx) => lockReservation(ctx, id, randomUUID()));
@@ -155,8 +156,10 @@ describe('saldos, libro y reservas', () => {
       createLiquidityAccount(ctx, { code: 'PRUEBA_CONCURRENCIA', name: 'Cuenta de prueba (ficticia)', asset: 'USDT', liquidityType: 'EXCHANGE' }),
     );
     await as(env, 'admin', (ctx) => openingBalance(ctx, acc.id, '100000', 'Saldo ficticio de prueba'));
-    const tries = Array.from({ length: 20 }, () =>
-      as(env, 'trader', (ctx) => reserve(ctx, { accountId: acc.id, orderId: randomUUID(), amount: new D(10000), reason: 'Concurrencia' })),
+    const orders: string[] = [];
+    for (let i = 0; i < 20; i++) orders.push(await fixtureOrder(env));
+    const tries = orders.map((orderId) =>
+      as(env, 'trader', (ctx) => reserve(ctx, { accountId: acc.id, orderId, amount: new D(10000), reason: 'Concurrencia' })),
     );
     const results = await Promise.allSettled(tries);
     expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(10);

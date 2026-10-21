@@ -5,7 +5,10 @@ import { counterpartyRoutes } from '../../modules/counterparties/routes.js';
 import { identityRoutes } from '../../modules/identity/routes.js';
 import { limitRoutes } from '../../modules/limits/routes.js';
 import { liquidityRoutes } from '../../modules/liquidity/routes.js';
+import { orderRoutes } from '../../modules/orders/routes.js';
 import { pricingRoutes } from '../../modules/pricing/routes.js';
+import { tradingRoutes } from '../../modules/trading/routes.js';
+import { withdrawOnPriceMove } from '../../modules/trading/service.js';
 import { makeKit, type V1Deps } from './kit.js';
 
 /**
@@ -35,7 +38,10 @@ export async function apiV1(app: FastifyInstance, deps: V1Deps) {
   const kit = makeKit(app, deps);
   identityRoutes(app, kit, deps);
   counterpartyRoutes(kit);
-  pricingRoutes(kit);
+  // Al cargar una TRM, las cotizaciones vigentes se revisan contra el precio nuevo.
+  pricingRoutes(kit, { afterTrm: withdrawOnPriceMove });
   limitRoutes(kit);
   liquidityRoutes(kit);
+  tradingRoutes(kit);
+  orderRoutes(kit);
 }

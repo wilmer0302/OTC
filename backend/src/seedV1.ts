@@ -138,12 +138,45 @@ const limits: Step = async (tx) => {
   return true;
 };
 
+// Cuentas de liquidez FICTICIAS con saldos iniciales de ejemplo (no corresponden a dinero real).
+// El saldo entra con un asiento de apertura contra el capital, como lo haría la mesa al arrancar.
+export const DEMO_LIQUIDITY = [
+  { code: 'BANCOLOMBIA_COP_DEMO', name: 'Bancolombia pesos (demo)', asset: 'COP', type: 'BANK', network: null, ref: '9990000001', isDefault: true, opening: '2000000000' },
+  { code: 'WALLET_TRON_DEMO', name: 'Billetera Tron (demo)', asset: 'USDT', type: 'WALLET', network: 'TRON', ref: 'TDemoMesaTronFicticia1111111111111', isDefault: true, opening: '150000' },
+  { code: 'WALLET_BSC_DEMO', name: 'Billetera BSC (demo)', asset: 'USDT', type: 'WALLET', network: 'BSC', ref: '0x00000000000000000000000000000000000d0001', isDefault: true, opening: '100000' },
+  { code: 'BINANCE_USDT_DEMO', name: 'Binance USDT (demo)', asset: 'USDT', type: 'EXCHANGE', network: null, ref: null, isDefault: false, opening: '50000' },
+] as const;
+
+const liquidity: Step = async (tx) => {
+  const r = await tx.query(`SELECT 1 FROM otc.accounts WHERE kind = 'LIQUIDITY' LIMIT 1`);
+  if (r.rowCount) return false;
+  const admin = await userId(tx, 'admin');
+  for (const a of DEMO_LIQUIDITY) {
+    const acc = await tx.query<{ id: string }>(
+      `INSERT INTO otc.accounts (code, name, asset, kind, liquidity_type, network, external_ref, is_default, created_by)
+       VALUES ($1,$2,$3,'LIQUIDITY',$4,$5,$6,$7,$8) RETURNING id`,
+      [a.code, a.name, a.asset, a.type, a.network, a.ref, a.isDefault, admin],
+    );
+    const e = await tx.query<{ id: string }>(
+      `INSERT INTO otc.journal_entries (kind, description, created_by) VALUES ('OPENING', $1, $2) RETURNING id`,
+      [`Saldo inicial ficticio de demo: ${a.name}`, admin],
+    );
+    await tx.query(
+      `INSERT INTO otc.journal_lines (entry_id, account_id, amount)
+       VALUES ($1, $2, $3), ($1, (SELECT id FROM otc.accounts WHERE code = $4), -$3::numeric)`,
+      [e.rows[0].id, acc.rows[0].id, a.opening, `EQUITY_${a.asset}`],
+    );
+  }
+  return true;
+};
+
 export const SEED_STEPS: Array<[string, Step]> = [
   ['usuarios', users],
   ['parametros', deskSettings],
   ['contrapartes', counterparties],
   ['precios', pricing],
   ['limites', limits],
+  ['liquidez', liquidity],
 ];
 
 /** Carga lo que falte de los datos ficticios. Devuelve los bloques cargados. */

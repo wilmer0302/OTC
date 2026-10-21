@@ -4,6 +4,7 @@ import type { FastifyInstance } from 'fastify';
 import { counterpartyRoutes } from '../../modules/counterparties/routes.js';
 import { identityRoutes } from '../../modules/identity/routes.js';
 import { limitRoutes } from '../../modules/limits/routes.js';
+import { liquidityRoutes } from '../../modules/liquidity/routes.js';
 import { pricingRoutes } from '../../modules/pricing/routes.js';
 import { makeKit, type V1Deps } from './kit.js';
 
@@ -36,4 +37,5 @@ export async function apiV1(app: FastifyInstance, deps: V1Deps) {
   counterpartyRoutes(kit);
   pricingRoutes(kit);
   limitRoutes(kit);
+  liquidityRoutes(kit);
 }

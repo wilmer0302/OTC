@@ -69,3 +69,46 @@ export async function simulateFor(ctx: Ctx, transferId: string, input: SimulateI
   await recordAction(ctx, 'sandbox.simulate', 'transfer', transferId, { ...input, sandbox: true });
   return { simulated: true, transfer: t.number, rail: t.rail, ...input };
 }
+
+/**
+ * Simula un movimiento suelto en el banco o la red de una cuenta de la mesa, sin transferencia
+ * en el libro (por ejemplo, un depósito que ninguna orden esperaba). Sirve para probar la conciliación.
+ */
+export async function simulateMovement(
+  ctx: Ctx,
+  accountId: string,
+  input: { reference: string; direction: 'IN' | 'OUT'; amount: string; counterpartyRef?: string },
+) {
+  assertSandbox(ctx);
+  const a = await ctx.tx.query('SELECT * FROM otc.accounts WHERE id = $1', [accountId]);
+  if (!a.rowCount) throw notFound('La cuenta');
+  const account = a.rows[0];
+  if (!account.external_ref) throw invalid('La cuenta no tiene número o dirección registrada');
+  const now = ctx.now();
+  if (account.liquidity_type === 'BANK') {
+    await ctx.tx.query(
+      `INSERT INTO otc.sandbox_bank_movements (account_ref, reference, direction, amount_cop, status, occurred_at, created_by)
+       VALUES ($1,$2,$3,$4,'SETTLED',$5,$6)`,
+      [account.external_ref, input.reference, input.direction, new D(input.amount).toFixed(0), now, actorDbId(ctx.actor)],
+    );
+  } else if (account.liquidity_type === 'WALLET') {
+    const other = input.counterpartyRef ?? 'SANDBOX-CONTRAPARTE';
+    await ctx.tx.query(
+      `INSERT INTO otc.sandbox_chain_txs (network, tx_hash, status, confirmations, from_address, to_address, amount_base_units, occurred_at, created_by)
+       VALUES ($1,$2,'SUCCESS',100,$3,$4,$5,$6,$7)`,
+      [
+        account.network,
+        input.reference,
+        input.direction === 'IN' ? other : account.external_ref,
+        input.direction === 'IN' ? account.external_ref : other,
+        usdtToBaseUnits(new D(input.amount), account.network),
+        now,
+        actorDbId(ctx.actor),
+      ],
+    );
+  } else {
+    throw invalid('El exchange no tiene simulación: carga su extracto a mano');
+  }
+  await recordAction(ctx, 'sandbox.simulate_movement', 'account', accountId, { ...input, sandbox: true });
+  return { simulated: true };
+}

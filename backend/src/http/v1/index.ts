@@ -8,6 +8,7 @@ import { limitRoutes } from '../../modules/limits/routes.js';
 import { liquidityRoutes } from '../../modules/liquidity/routes.js';
 import { orderRoutes } from '../../modules/orders/routes.js';
 import { pricingRoutes } from '../../modules/pricing/routes.js';
+import { reconciliationRoutes } from '../../modules/reconciliation/routes.js';
 import { tradingRoutes } from '../../modules/trading/routes.js';
 import { transferRoutes } from '../../modules/transfers/routes.js';
 import { withdrawOnPriceMove } from '../../modules/trading/service.js';
@@ -48,4 +49,5 @@ export async function apiV1(app: FastifyInstance, deps: V1Deps) {
   orderRoutes(kit);
   transferRoutes(kit);
   confirmationRoutes(kit, deps);
+  reconciliationRoutes(kit, deps);
 }

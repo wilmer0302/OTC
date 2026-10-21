@@ -38,6 +38,9 @@ Fecha de inicio: 2026-10-20. El diseño completo está en el documento de Fase 1
 | 30 | Toda llamada a una integración queda registrada con hora, duración y resultado; la evidencia se guarda cuando cambia | Historia H7.2 sin llenar la base con repeticiones | Implementada (fase 4) |
 | 31 | Simulación sandbox (`/api/v1/sandbox/...`, permiso de simulación) solo existe en modo DEMO | Principio 4 | Implementada (fase 4) |
 | 32 | Se retiró la función de la fase 4 que daba el cobro por confirmado sin evidencia; ahora el cobro avanza solo con la confirmación del banco o la red | Principio 3 | Implementada (fase 4) |
+| 33 | Conciliación por cuenta y día de Bogotá: el extracto del banco o de la red (o uno cargado a mano para el exchange) se cruza por referencia, sentido y monto; lo que el libro confirmó y el extracto no muestra queda Sin contrapartida | Especificación, módulo 10 | Implementada (fase 4) |
+| 34 | Ajustes contra la cuenta ADJUSTMENTS del activo, propuestos por Tesorería y aprobados por Administración (otra persona, segundo factor); el asiento original no se toca | Historias H10.2 y H11.2 | Implementada (fase 4) |
+| 35 | Una partida en revisión se puede aclarar sin ajuste solo por Administración, con motivo y segundo factor | Diferencias de fecha que no son dinero | Implementada (fase 4), revisable |
 
 ## Supuestos abiertos
 

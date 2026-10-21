@@ -261,7 +261,7 @@ function RecordDrawer({ record, actor, onClose, onFilterEntity }: { record: Audi
       <h3>Datos registrados</h3>
       {Object.keys(rest).length ? <pre className="json-block">{JSON.stringify(rest, null, 2)}</pre> : <p className="muted">Sin datos adicionales.</p>}
       {record.entity_id && (
-        <div className="action-row">
+        <div className="action-row block-gap">
           <Button size="sm" onClick={onFilterEntity}>
             Ver todo el registro de este objeto
           </Button>
@@ -429,7 +429,7 @@ function ObjectHistory({ route }: PageProps) {
       {list.error ? <ErrorNotice error={list.error} compact /> : null}
       {id ? (
         <>
-          <div className="action-row">
+          <div className="action-row block-gap">
             <LinkButton size="sm" href={type === 'adjustment' ? href('conciliaciones', { vista: 'ajustes' }) : href(`${h.module}/${id}`)}>
               Abrir en el módulo
             </LinkButton>

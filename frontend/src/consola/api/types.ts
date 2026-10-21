@@ -83,7 +83,9 @@ export interface Destination {
   decision_note: string | null;
   revoke_reason: string | null;
   counterparty_name?: string;
+  proposed_by?: string;
   proposed_by_name?: string;
+  supersedes_id?: string | null;
 }
 
 export interface CounterpartyDetail extends CounterpartyRow {

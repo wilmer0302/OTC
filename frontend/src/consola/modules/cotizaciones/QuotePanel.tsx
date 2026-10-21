@@ -4,7 +4,7 @@ import type { Quote } from '../../api/types';
 import { DemoTag } from '../../app/DemoTag';
 import { navigate } from '../../app/router';
 import { useCan } from '../../app/session';
-import { cop, copPrice, pct, usdt } from '../../lib/format';
+import { cop, copPrice, pct, timeOnly, usdt } from '../../lib/format';
 import { QUOTE_STATUS, SIDE } from '../../lib/labels';
 import { StatusBadge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
@@ -61,6 +61,17 @@ export function QuotePanel({ quote, counterparty, network, onChange }: { quote: 
         onChange();
       },
     });
+
+  // Texto para enviar al cliente: solo precio todo incluido, total y detalle de comisión.
+  const clientMessage = [
+    `Cotización #${quote.number}`,
+    `${quote.side === 'SELL' ? 'Compra' : 'Venta'} de ${usdt(quote.usdt_amount)} · red ${network}`,
+    `Precio por USDT (todo incluido): ${copPrice(quote.unit_price_cop)}`,
+    `Total: ${cop(quote.total_cop)}`,
+    `Detalle: precio antes de comisión ${copPrice(quote.base_price_cop)} · comisión ${cop(quote.commission_cop)}`,
+    `Válida hasta las ${timeOnly(quote.expires_at)} (hora de Colombia).`,
+  ].join('\n');
+  const [copied, setCopied] = useState(false);
 
   return (
     <div className="quote-panel">
@@ -123,6 +134,17 @@ export function QuotePanel({ quote, counterparty, network, onChange }: { quote: 
             </Button>
           )}
           {can('quote.withdraw') && <Button onClick={withdraw}>Retirar</Button>}
+          <Button
+            variant="ghost"
+            onClick={() =>
+              navigator.clipboard?.writeText(clientMessage).then(() => {
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+              })
+            }
+          >
+            {copied ? 'Mensaje copiado' : 'Copiar mensaje para el cliente'}
+          </Button>
         </div>
       )}
       {dialog}

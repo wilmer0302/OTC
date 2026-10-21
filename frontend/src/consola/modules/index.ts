@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react';
 import type { Route } from '../app/router';
 import Inicio from './inicio/Inicio';
+import Cotizaciones from './cotizaciones/Cotizaciones';
 import { Pending } from './Pending';
 import Solicitudes from './solicitudes/Solicitudes';
 
@@ -12,7 +13,7 @@ export interface PageProps {
 export const MODULES: Record<string, ComponentType<PageProps>> = {
   inicio: Inicio,
   solicitudes: Solicitudes,
-  cotizaciones: Pending,
+  cotizaciones: Cotizaciones,
   ordenes: Pending,
   liquidez: Pending,
   transferencias: Pending,

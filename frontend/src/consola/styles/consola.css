@@ -222,7 +222,8 @@ textarea.input { resize: vertical; min-height: 64px; }
 .filter-right { display: flex; gap: 8px; align-items: center; }
 .filter-select { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); font-weight: 600; }
 .filter-select .input { min-width: 170px; }
-.search { max-width: 320px; min-width: 200px; }
+.filter-search { flex: 1 1 220px; max-width: 340px; }
+.search { width: 100%; }
 
 /* ---------- Tablas ---------- */
 .table-wrap { position: relative; overflow-x: auto; }
@@ -342,7 +343,7 @@ textarea.input { resize: vertical; min-height: 64px; }
   .table td::before { content: attr(data-label); color: var(--muted); font-size: 12px; text-align: left; }
   .table td.col-secondary { display: none; }
   .table tbody tr:nth-child(even):not(.is-selected) td { background: none; }
-  .search { max-width: none; width: 100%; }
+  .filter-search { max-width: none; }
   .filter-select, .filter-select .input { width: 100%; }
   .filter-items > * { flex: 1 1 100%; }
   .grid-4 { grid-template-columns: 1fr; }
@@ -380,3 +381,13 @@ textarea.input { resize: vertical; min-height: 64px; }
 @media (max-width: 720px) {
   .status-bars a { grid-template-columns: 1fr 60px 30px; }
 }
+
+/* ---------- Cotización ---------- */
+.quote-panel { margin: 8px 0 4px; }
+.quote-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; font-weight: 600; }
+.quote-client { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 8px 0 6px; }
+@media (max-width: 480px) { .quote-client { grid-template-columns: 1fr; } }
+.plain-list { list-style: none; margin: 0; padding: 0; }
+.plain-list li { padding: 7px 0; border-bottom: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.plain-list li:last-child { border-bottom: none; }
+.plain-list .cell-sub { flex-basis: 100%; }

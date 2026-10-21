@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { system as systemApi } from '../api/endpoints';
 import type { Dashboard } from '../api/types';
+import { copPrice } from '../lib/format';
 import { useQuery } from '../lib/hooks';
 import { ROLE } from '../lib/labels';
 import { NAV } from './nav';
@@ -61,7 +62,7 @@ export function Shell({ active, children }: { active: string; children: ReactNod
             <div className="topbar-trm">
               {dash.data?.trm ? (
                 <>
-                  <span className="muted">TRM {dash.data.today}</span> <strong>$ {dash.data.trm.rate.replace('.', ',')}</strong>
+                  <span className="muted">TRM {dash.data.today}</span> <strong>{copPrice(dash.data.trm.rate)}</strong>
                   {dash.data.trm.simulated && <span className="sim-tag">SIMULADA</span>}
                 </>
               ) : dash.data ? (

@@ -57,7 +57,10 @@ export function FilterBar({ children, right }: { children: ReactNode; right?: Re
 
 export function SearchInput({ value, onChange, placeholder = 'Buscar…', label = 'Buscar' }: { value: string; onChange: (v: string) => void; placeholder?: string; label?: string }) {
   return (
-    <input type="search" className="input search" aria-label={label} placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)} />
+    <label className="filter-select filter-search">
+      <span>{label}</span>
+      <input type="search" className="input search" placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)} />
+    </label>
   );
 }
 

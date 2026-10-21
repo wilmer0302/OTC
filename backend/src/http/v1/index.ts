@@ -1,6 +1,7 @@
 import cookie from '@fastify/cookie';
 import rateLimit from '@fastify/rate-limit';
 import type { FastifyInstance } from 'fastify';
+import { auditRoutes } from '../../modules/audit/routes.js';
 import { confirmationRoutes } from '../../modules/confirmations/routes.js';
 import { counterpartyRoutes } from '../../modules/counterparties/routes.js';
 import { identityRoutes } from '../../modules/identity/routes.js';
@@ -50,4 +51,5 @@ export async function apiV1(app: FastifyInstance, deps: V1Deps) {
   transferRoutes(kit);
   confirmationRoutes(kit, deps);
   reconciliationRoutes(kit, deps);
+  auditRoutes(kit, deps);
 }

@@ -11,6 +11,8 @@ export interface Ctx {
   integrations: Integrations;
   /** Hora del servidor; las pruebas pueden fijarla. */
   now: () => Date;
+  /** Desde dónde llegó la acción (IP y navegador), para la auditoría. Vacío en el trabajador. */
+  origin?: { ip: string; userAgent?: string };
 }
 
 /** Actor del sistema (trabajador en segundo plano). No tiene usuario en la base. */

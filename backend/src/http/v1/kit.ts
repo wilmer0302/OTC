@@ -62,7 +62,13 @@ export function makeKit(app: FastifyInstance, deps: V1Deps) {
     return resolved;
   }
 
-  const ctxFor = (tx: Ctx['tx'], actor: Actor): Ctx => ({ tx, actor, integrations: deps.integrations, now: deps.now });
+  const ctxFor = (tx: Ctx['tx'], actor: Actor, req?: FastifyRequest): Ctx => ({
+    tx,
+    actor,
+    integrations: deps.integrations,
+    now: deps.now,
+    origin: req ? { ip: req.ip, userAgent: (req.headers['user-agent'] as string | undefined)?.slice(0, 200) } : undefined,
+  });
 
   /** Lectura: sesión, segundo factor y permiso, sin transacción de escritura. */
   function get<Q extends z.ZodType>(
@@ -75,7 +81,7 @@ export function makeKit(app: FastifyInstance, deps: V1Deps) {
       const { actor } = await session(req);
       authorize(actor, permission);
       const q = query ? query.parse(req.query) : ({} as z.infer<Q>);
-      return inTransaction(deps.db, (tx) => handler(ctxFor(tx, actor), q, req));
+      return inTransaction(deps.db, (tx) => handler(ctxFor(tx, actor, req), q, req));
     });
   }
 
@@ -97,7 +103,7 @@ export function makeKit(app: FastifyInstance, deps: V1Deps) {
         const execute = async () => {
           // Dentro de la ejecución: una repetición con la misma clave no vuelve a pedir el código.
           if (opts.stepUp) await verifyStepUp(tx, deps.identity, actor, req.headers['x-mfa-code'] as string | undefined, deps.now());
-          const result = await handler(ctxFor(tx, actor), body, req);
+          const result = await handler(ctxFor(tx, actor, req), body, req);
           if (result instanceof CommittedFailure) {
             return {
               statusCode: result.error.httpStatus,

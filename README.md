@@ -28,6 +28,8 @@ Abre <http://localhost:8080>. La primera vez tarda unos minutos mientras descarg
 | `trader` | `demo1234` | Operador y tesorero (el trader central) |
 | `tesorero2` | `demo1234` | Tesorero (segunda aprobación) |
 | `auditor` | `demo1234` | Solo lectura de auditoría |
+| `cumplimiento` | `demo1234` | Cumplimiento (KYC y lista blanca de destinos), solo en `/api/v1` |
+| `admin2` | `demo1234` | Segunda firma de administración, solo en `/api/v1` |
 
 Para apagarla: `Ctrl + C`, y `docker compose down`. Para borrar los datos y empezar de cero:
 `docker compose down -v`.
@@ -43,6 +45,30 @@ Para apagarla: `Ctrl + C`, y `docker compose down`. Para borrar los datos y empe
    **segunda aprobación**; entra como `tesorero2` para darla.
 6. Entra como `admin`: cambia márgenes o la política de aprobación, y en **Auditoría** pulsa
    «Verificar integridad».
+
+## Backend v1 (`/api/v1`)
+
+El backend definitivo (fase 4) corre junto a la demo anterior, sin reemplazarla todavía: vive en el esquema
+`otc` de PostgreSQL y bajo `/api/v1`. La consola web aún usa `/api`; se migra en la fase de frontend.
+
+- **Sesión** por cookie HttpOnly, segundo factor obligatorio (TOTP) y token anti-CSRF. Aprobaciones y
+  cambios de configuración piden otra vez el código (cabecera `X-MFA-Code`).
+- **Escrituras críticas** con `Idempotency-Key`: repetir no duplica.
+- **Flujo**: solicitud → cotización (TRM + margen + comisión, con plazo) → orden con liquidez reservada →
+  pago registrado → cobro confirmado por el banco o la red → aprobación → envío firmado fuera (se registra el
+  hash) → entrega confirmada → orden completada → conciliación diaria y cierre.
+- **Trabajador** (`worker` en docker compose): vence cotizaciones, solicitudes y órdenes sin pago, sigue las
+  transferencias contra la red y el banco y fija un ancla diaria de la auditoría.
+- **Sandbox**: en modo DEMO, `POST /api/v1/sandbox/transfers/:id/simulate` y
+  `POST /api/v1/sandbox/accounts/:id/movements` simulan lo que reportarían la red o el banco. No existen en
+  producción.
+- Datos ficticios: tres clientes, cuentas de liquidez de demo (Bancolombia, billeteras Tron y BSC, Binance) y
+  límites de ejemplo.
+
+Módulos en `backend/src/modules/`: identidad, contrapartes, precios, límites, liquidez, solicitudes y
+cotizaciones (`trading`), órdenes, transferencias, confirmaciones, conciliación, auditoría y sandbox. Cada uno
+tiene sus reglas puras (`domain.ts`), casos de uso (`service.ts`) y rutas (`routes.ts`). Las decisiones están
+en [docs/decisiones.md](docs/decisiones.md).
 
 ## Estructura
 
@@ -66,7 +92,10 @@ Necesitas Node.js 22 y PostgreSQL 16.
 cd backend && npm install
 export DATABASE_URL=postgres://otc:otc@localhost:5432/otc
 export JWT_SECRET=una-cadena-larga-de-al-menos-32-caracteres
+export MFA_ENCRYPTION_KEY=$(openssl rand -hex 32)   # cifra los secretos del segundo factor
+export COOKIE_SECURE=false                          # solo en http://localhost
 npm run dev            # http://localhost:3000
+npx tsx src/worker.ts  # trabajador, en otra terminal
 npm test               # usa TEST_DATABASE_URL (por defecto .../otc_test); BORRA esa base
 
 # frontend

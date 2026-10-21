@@ -20,7 +20,7 @@ export async function recordTransition(
      VALUES ($1,$2,$3,$4,$5,$6,$7)`,
     [entity, entityId, from, to, actorId, note, data],
   );
-  await audit(ctx.tx, actorId, `${entity}.${to.toLowerCase()}`, entity, entityId, { from, to, note, ...data });
+  await audit(ctx.tx, actorId, `${entity}.${to.toLowerCase()}`, entity, entityId, withOrigin(ctx, { from, to, note, ...data }));
 }
 
 /** Registro de auditoría de una acción que no es un cambio de estado. */
@@ -31,8 +31,11 @@ export async function recordAction(
   entityId: string | null,
   data: Record<string, unknown> = {},
 ): Promise<void> {
-  await audit(ctx.tx, actorDbId(ctx.actor), action, entity, entityId, data);
+  await audit(ctx.tx, actorDbId(ctx.actor), action, entity, entityId, withOrigin(ctx, data));
 }
+
+/** Agrega desde dónde llegó la acción (IP y navegador), si vino de una persona por la API. */
+const withOrigin = (ctx: Ctx, data: Record<string, unknown>) => (ctx.origin ? { ...data, origin: ctx.origin } : data);
 
 export async function history(ctx: Pick<Ctx, 'tx'>, entity: string, entityId: string) {
   const r = await ctx.tx.query(

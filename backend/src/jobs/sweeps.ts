@@ -1,5 +1,6 @@
 import type { Db } from '../db/pool.js';
 import type { Integrations } from '../integrations/ports.js';
+import { dailyAnchor } from '../modules/audit/service.js';
 import { trackTransfers } from '../modules/confirmations/service.js';
 import { expireOrders } from '../modules/orders/service.js';
 import { expireQuotesAndRequests } from '../modules/trading/service.js';
@@ -14,6 +15,7 @@ type Job = (ctx: Ctx) => Promise<unknown>;
 export const SWEEPS: Array<[string, Job]> = [
   ['cotizaciones y solicitudes vencidas', expireQuotesAndRequests],
   ['órdenes sin pago en el plazo', expireOrders],
+  ['ancla diaria de la auditoría', dailyAnchor],
 ];
 
 export async function runSweeps(db: Db, integrations: Integrations, now: () => Date) {

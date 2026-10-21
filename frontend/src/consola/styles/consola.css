@@ -394,3 +394,8 @@ textarea.input { resize: vertical; min-height: 64px; }
 @media (max-width: 1640px) { .split .table .col-secondary { display: none; } }
 .sim-panel { border-style: dashed; border-color: #f2c94c; background: #fffbea; }
 .transfer-mini { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.card-section { padding: 14px 18px 4px; border-bottom: 1px solid var(--border); }
+@media (max-width: 720px) {
+  .table td .td-content { text-align: right; min-width: 0; }
+  .card-section { padding: 12px 12px 2px; }
+}

@@ -65,7 +65,7 @@ export default function Ordenes({ route }: PageProps) {
       <PageHeader title="Órdenes y ejecución" subtitle="Desde el pago del cliente hasta la entrega confirmada. Cada paso lo registra y verifica el servidor." />
       <div className={selected ? 'split' : ''}>
         <Card flush title={<>Órdenes <DemoTag /></>}>
-          <div className="card-body">
+          <div className="card-section">
             <FilterBar right={<Button size="sm" onClick={list.reload} busy={list.loading}>Actualizar</Button>}>
               <SearchInput value={search} onChange={setSearch} placeholder="Cliente o número" />
               <FilterSelect

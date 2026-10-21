@@ -77,7 +77,7 @@ export function DataTable<T>({ columns, rows, rowKey, loading, error, onRowClick
                     data-label={typeof c.header === 'string' ? c.header : undefined}
                     className={`${c.align ? `align-${c.align}` : ''} ${c.secondary ? 'col-secondary' : ''}`}
                   >
-                    {c.render(row)}
+                    <span className="td-content">{c.render(row)}</span>
                   </td>
                 ))}
               </tr>

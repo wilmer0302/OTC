@@ -63,7 +63,7 @@ export default function Cotizaciones({ route }: PageProps) {
       />
       <div className={selected ? 'split' : ''}>
         <Card flush title={<>Cotizaciones <DemoTag /></>}>
-          <div className="card-body">
+          <div className="card-section">
             <FilterBar right={<Button size="sm" onClick={list.reload} busy={list.loading}>Actualizar</Button>}>
               <SearchInput value={search} onChange={setSearch} placeholder="Cliente, cotización, solicitud u orden" />
               <FilterSelect

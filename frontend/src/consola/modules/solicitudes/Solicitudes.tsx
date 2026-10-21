@@ -65,7 +65,7 @@ export default function Solicitudes({ route }: PageProps) {
       />
       <div className={selected ? 'split' : ''}>
         <Card flush title={<>Solicitudes <DemoTag /></>}>
-          <div className="card-body">
+          <div className="card-section">
             <FilterBar right={<Button size="sm" onClick={list.reload} busy={list.loading}>Actualizar</Button>}>
               <SearchInput value={search} onChange={setSearch} placeholder="Cliente o número" />
               <FilterSelect label="Estado" value={status} onChange={(v) => setFilter('estado', v)} options={Object.entries(REQUEST_STATUS).map(([k, v]) => ({ value: k, label: v.label }))} />

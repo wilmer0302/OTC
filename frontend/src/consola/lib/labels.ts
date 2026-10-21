@@ -136,5 +136,11 @@ export const ENTITY: Record<string, string> = {
   recon_run: 'Conciliación',
   recon_item: 'Partida',
   adjustment: 'Ajuste',
+  case: 'Caso de revisión',
+  journal_entry: 'Asiento contable',
+  reservation: 'Reserva de liquidez',
+  settlement: 'Pago o entrega',
+  audit_anchor: 'Ancla de auditoría',
+  system: 'Sistema',
   settings: 'Parámetros',
 };

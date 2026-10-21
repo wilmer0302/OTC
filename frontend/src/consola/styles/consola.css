@@ -268,7 +268,7 @@ textarea.input { resize: vertical; min-height: 64px; }
 .action-panel { border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; margin: 12px 0; background: var(--surface-2); }
 .action-panel h4 { margin: 0 0 4px; font-size: 13.5px; }
 .action-panel p { margin: 0 0 10px; color: var(--muted); font-size: 13px; }
-.action-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.action-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
 
 .modal-backdrop { position: fixed; inset: 0; background: rgba(15, 27, 45, 0.5); display: grid; place-items: center; z-index: 100; padding: 16px; }
 .modal { background: var(--surface); border-radius: 10px; box-shadow: var(--shadow-lg); width: 100%; max-width: 520px; max-height: calc(100vh - 32px); display: flex; flex-direction: column; }
@@ -400,3 +400,13 @@ textarea.input { resize: vertical; min-height: 64px; }
   .card-section { padding: 12px 12px 2px; }
 }
 .recon-item .cell-sub { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+
+/* Historial y auditoría */
+.link-button { background: none; border: 0; padding: 0; color: var(--accent); font: inherit; cursor: pointer; text-align: left; }
+.link-button:hover { text-decoration: underline; }
+.filter-chips { display: flex; gap: 10px; align-items: center; margin-top: 10px; }
+.table-more { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; border-top: 1px solid var(--border); }
+.json-block { background: var(--surface-2, #f5f7fa); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; white-space: pre-wrap; word-break: break-word; max-height: 320px; overflow: auto; margin: 0; }
+.nowrap { white-space: nowrap; }
+.form-row-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 720px) { .form-row-3 { grid-template-columns: 1fr; } }

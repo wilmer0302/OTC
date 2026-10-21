@@ -7,7 +7,8 @@ export type ReservationStatus = 'ACTIVE' | 'LOCKED' | 'CONSUMED' | 'RELEASED';
 
 const RESERVATION_TRANSITIONS: Record<ReservationStatus, ReservationStatus[]> = {
   ACTIVE: ['LOCKED', 'RELEASED'],
-  LOCKED: ['CONSUMED', 'ACTIVE'], // ACTIVE de nuevo si la transferencia falla de forma demostrada
+  // ACTIVE de nuevo si la transferencia falla de forma demostrada; RELEASED si un traslado se cancela antes de enviarse.
+  LOCKED: ['CONSUMED', 'ACTIVE', 'RELEASED'],
   CONSUMED: [],
   RELEASED: [],
 };

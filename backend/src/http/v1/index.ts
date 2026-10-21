@@ -8,6 +8,7 @@ import { liquidityRoutes } from '../../modules/liquidity/routes.js';
 import { orderRoutes } from '../../modules/orders/routes.js';
 import { pricingRoutes } from '../../modules/pricing/routes.js';
 import { tradingRoutes } from '../../modules/trading/routes.js';
+import { transferRoutes } from '../../modules/transfers/routes.js';
 import { withdrawOnPriceMove } from '../../modules/trading/service.js';
 import { makeKit, type V1Deps } from './kit.js';
 
@@ -44,4 +45,5 @@ export async function apiV1(app: FastifyInstance, deps: V1Deps) {
   liquidityRoutes(kit);
   tradingRoutes(kit);
   orderRoutes(kit);
+  transferRoutes(kit);
 }

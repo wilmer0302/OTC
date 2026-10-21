@@ -191,10 +191,15 @@ async function reservedOn(tx: Tx, accountId: string): Promise<Dec> {
 }
 
 /**
- * Aparta liquidez para una orden. Corre con la cuenta bloqueada: dos órdenes simultáneas
- * nunca cuentan el mismo saldo.
+ * Aparta liquidez para una orden, o para un traslado propio (sin orden: la reserva nace atada a
+ * su transferencia). Corre con la cuenta bloqueada: dos operaciones simultáneas nunca cuentan el
+ * mismo saldo.
  */
-export async function reserve(ctx: Ctx, input: { accountId: string; orderId: string; amount: Dec; reason: string }) {
+export async function reserve(
+  ctx: Ctx,
+  input: { accountId: string; orderId?: string | null; transferId?: string | null; amount: Dec; reason: string },
+) {
+  if (!input.orderId && !input.transferId) throw new Error('Una reserva es de una orden o de un traslado');
   const account = (await lockAccounts(ctx.tx, [input.accountId])).get(input.accountId)!;
   if (account.kind !== 'LIQUIDITY' || !account.active) throw invalid('Solo se reserva en una cuenta real activa');
   const reserved = await reservedOn(ctx.tx, account.id);
@@ -206,16 +211,26 @@ export async function reserve(ctx: Ctx, input: { accountId: string; orderId: str
     );
   }
   const r = await ctx.tx.query<{ id: string }>(
-    `INSERT INTO otc.reservations (account_id, order_id, amount, status, reason, created_at, updated_at)
-     VALUES ($1,$2,$3,'ACTIVE',$4,$5,$5) RETURNING id`,
-    [account.id, input.orderId, fmt(input.amount), input.reason, ctx.now()],
+    `INSERT INTO otc.reservations (account_id, order_id, transfer_id, amount, status, reason, created_at, updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$7) RETURNING id`,
+    [account.id, input.orderId ?? null, input.transferId ?? null, fmt(input.amount), input.orderId ? 'ACTIVE' : 'LOCKED', input.reason, ctx.now()],
   );
   await recordAction(ctx, 'liquidity.reserve', 'reservation', r.rows[0].id, {
     account: account.code,
-    orderId: input.orderId,
+    orderId: input.orderId ?? null,
+    transferId: input.transferId ?? null,
     amount: fmt(input.amount),
   });
   return r.rows[0].id;
+}
+
+/** Reserva abierta atada a una transferencia (entrega en curso o traslado). */
+export async function openReservationForTransfer(tx: Tx, transferId: string) {
+  const r = await tx.query(
+    `SELECT * FROM otc.reservations WHERE transfer_id = $1 AND status IN ('ACTIVE','LOCKED') FOR UPDATE`,
+    [transferId],
+  );
+  return r.rows[0] ?? null;
 }
 
 export async function openReservationFor(tx: Tx, orderId: string) {

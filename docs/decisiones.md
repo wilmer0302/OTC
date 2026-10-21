@@ -29,6 +29,9 @@ Fecha de inicio: 2026-10-20. El diseño completo está en el documento de Fase 1
 | 21 | Un pago reportado después del plazo no vence la orden: la manda a revisión con un pendiente abierto | El dinero pudo haber llegado; ante la duda, revisión | Implementada (fase 4) |
 | 22 | Una orden solo se cancela sin dinero en movimiento; con pago reportado o confirmado se requiere devolución | Especificación: "una orden no se cancela después de que el cliente pagó" | Implementada (fase 4) |
 | 23 | Con la política "una persona", quien creó la orden puede aprobar la entrega (la mesa opera con un trader central); con dos firmas, deben ser personas distintas | Dato del negocio: un trader central | Implementada (fase 4), revisable |
+| 24 | La plataforma entrega la instrucción de envío (monto en unidades base, origen, destino de la lista blanca) y registra el hash; no firma | Principio 7 | Implementada (fase 4) |
+| 25 | Un envío cancelado antes de salir devuelve la reserva a la orden; el reintento es una transferencia nueva enlazada, con aprobación y segundo factor | Especificación: una fallida nunca se reactiva | Implementada (fase 4) |
+| 26 | Traslados entre cuentas propias: reservan en el origen al autorizarse; el destino sube solo al confirmarse. Las reservas pueden pertenecer a una transferencia sin orden (migración 010, no destructiva) | Historia H5.2 | Implementada (fase 4) |
 
 ## Supuestos abiertos
 

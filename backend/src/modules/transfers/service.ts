@@ -342,14 +342,18 @@ export async function getTransfer(ctx: Pick<Ctx, 'tx'>, id: string) {
 }
 
 /** Lista con antigüedad: lo que lleva más tiempo enviado sin confirmar aparece primero. */
-export async function listTransfers(ctx: Pick<Ctx, 'tx'>, filter: { status?: TransferStatus; purpose?: TransferRow['purpose'] }) {
+export async function listTransfers(
+  ctx: Pick<Ctx, 'tx'>,
+  filter: { status?: TransferStatus; purpose?: TransferRow['purpose']; rail?: TransferRow['rail']; search?: string },
+) {
   const r = await ctx.tx.query(
     `SELECT t.id, t.number, t.purpose, t.direction, t.rail, t.asset, t.amount, t.status, t.status_reason, t.external_ref,
             t.confirmations, t.sent_at, t.last_checked_at, t.created_at, o.number AS order_number, a.code AS account_code
      FROM otc.transfers t JOIN otc.accounts a ON a.id = t.account_id LEFT JOIN otc.orders o ON o.id = t.order_id
-     WHERE ($1::text IS NULL OR t.status = $1) AND ($2::text IS NULL OR t.purpose = $2)
+     WHERE ($1::text IS NULL OR t.status = $1) AND ($2::text IS NULL OR t.purpose = $2) AND ($3::text IS NULL OR t.rail = $3)
+       AND ($4::text IS NULL OR lower(t.external_ref) LIKE lower($4) || '%' OR t.number::text = $4 OR o.number::text = $4)
      ORDER BY t.sent_at ASC NULLS LAST, t.created_at DESC LIMIT 200`,
-    [filter.status ?? null, filter.purpose ?? null],
+    [filter.status ?? null, filter.purpose ?? null, filter.rail ?? null, filter.search ?? null],
   );
   return r.rows;
 }

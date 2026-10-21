@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { CommittedFailure, type Kit } from '../../http/v1/kit.js';
-import { acceptQuote, cancelRequest, createQuote, createRequest, getRequest, listRequests, quoteClientView, withdrawQuote } from './service.js';
+import { acceptQuote, cancelRequest, createQuote, createRequest, getRequest, listQuotes, listRequests, quoteClientView, withdrawQuote } from './service.js';
 
 const uuid = z.object({ id: z.uuid() });
 const reason = z.strictObject({ reason: z.string().trim().min(3).max(500) });
@@ -12,6 +12,12 @@ export function tradingRoutes(kit: Kit) {
     'read.operations',
     z.strictObject({ status: REQUEST_STATUS.optional(), counterpartyId: z.uuid().optional() }),
     (ctx, q) => listRequests(ctx, q),
+  );
+  kit.get(
+    '/quotes',
+    'read.operations',
+    z.strictObject({ status: z.enum(['VIGENTE', 'ACEPTADA', 'VENCIDA', 'REEMPLAZADA', 'RETIRADA']).optional(), requestId: z.uuid().optional() }),
+    (ctx, q) => listQuotes(ctx, q),
   );
   kit.get('/requests/:id', 'read.operations', null, (ctx, _q, req) => getRequest(ctx, uuid.parse(req.params).id));
 

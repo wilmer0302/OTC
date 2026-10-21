@@ -231,6 +231,20 @@ function present(ctx: Ctx, d: Record<string, unknown>) {
   return seesFullDestinations(ctx) ? d : { ...d, value: mask(String(d.value)), holder_document: d.holder_document ? '••••' : null };
 }
 
+/** Bandeja de destinos por estado (por ejemplo, los propuestos que esperan decisión de Cumplimiento). */
+export async function listDestinations(ctx: Ctx, status: string) {
+  const r = await ctx.tx.query(
+    `SELECT d.*, v.legal_name AS counterparty_name, u.full_name AS proposed_by_name
+     FROM otc.destinations d
+     JOIN otc.counterparties c ON c.id = d.counterparty_id
+     JOIN otc.counterparty_versions v ON v.counterparty_id = c.id AND v.version = c.current_version
+     JOIN public.users u ON u.id = d.proposed_by
+     WHERE d.status = $1 ORDER BY d.proposed_at LIMIT 200`,
+    [status],
+  );
+  return r.rows.map((d) => present(ctx, d));
+}
+
 export async function getDestination(ctx: Ctx, id: string) {
   const r = await ctx.tx.query('SELECT * FROM otc.destinations WHERE id = $1', [id]);
   if (!r.rowCount) throw notFound('El destino');

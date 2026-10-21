@@ -7,6 +7,7 @@ import {
   decideAdjustment,
   getRun,
   importStatement,
+  listAdjustments,
   listRuns,
   proposeAdjustment,
   reconcileAccount,
@@ -73,6 +74,12 @@ export function reconciliationRoutes(kit: Kit, deps: V1Deps) {
       body: z.strictObject({ itemId: z.uuid(), amount: z.string().trim().regex(/^-?\d{1,24}(\.\d{1,6})?$/), reason: z.string().trim().min(3).max(500) }),
     },
     (ctx, body) => proposeAdjustment(ctx, body),
+  );
+  kit.get(
+    '/adjustments',
+    'read.operations',
+    z.strictObject({ status: z.enum(['PROPUESTO', 'APROBADO', 'RECHAZADO']).optional(), runId: z.uuid().optional() }),
+    (ctx, q) => listAdjustments(ctx, q),
   );
   kit.post(
     '/adjustments/:id/decision',

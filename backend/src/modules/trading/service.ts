@@ -394,6 +394,24 @@ export async function getRequest(ctx: Pick<Ctx, 'tx'>, id: string) {
   return { ...r.rows[0], quotes: quotes.rows, order: order.rows[0] ?? null, history: await history(ctx, 'request', id) };
 }
 
+/** Cotizaciones con su solicitud y cliente, para la bandeja de cotizaciones (incluye el detalle interno). */
+export async function listQuotes(ctx: Pick<Ctx, 'tx'>, filter: { status?: QuoteStatus; requestId?: string }) {
+  const r = await ctx.tx.query(
+    `SELECT q.id, q.number, q.request_id, q.side, q.usdt_amount, q.unit_price_cop, q.total_cop, q.commission_cop,
+            q.status, q.status_reason, q.expires_at, q.created_at, r.number AS request_number, r.network,
+            v.legal_name AS counterparty_name, o.id AS order_id, o.number AS order_number
+     FROM otc.quotes q
+     JOIN otc.requests r ON r.id = q.request_id
+     JOIN otc.counterparties c ON c.id = r.counterparty_id
+     JOIN otc.counterparty_versions v ON v.counterparty_id = c.id AND v.version = c.current_version
+     LEFT JOIN otc.orders o ON o.quote_id = q.id
+     WHERE ($1::text IS NULL OR q.status = $1) AND ($2::uuid IS NULL OR q.request_id = $2)
+     ORDER BY q.created_at DESC LIMIT 200`,
+    [filter.status ?? null, filter.requestId ?? null],
+  );
+  return r.rows;
+}
+
 export async function listRequests(ctx: Pick<Ctx, 'tx'>, filter: { status?: RequestStatus; counterpartyId?: string }) {
   const r = await ctx.tx.query(
     `SELECT r.id, r.number, r.side, r.usdt_amount, r.network, r.status, r.status_reason, r.expires_at, r.created_at,

@@ -357,6 +357,22 @@ export async function getRun(ctx: Pick<Ctx, 'tx'>, runId: string) {
   return { ...r.rows[0], items: items.rows };
 }
 
+/** Ajustes con su partida y conciliación, para la bandeja de aprobación. */
+export async function listAdjustments(ctx: Pick<Ctx, 'tx'>, filter: { status?: string; runId?: string }) {
+  const r = await ctx.tx.query(
+    `SELECT j.id, j.number, j.amount, j.reason, j.status, j.status_reason, j.created_at, j.decided_at, a.code AS account_code, a.asset,
+            i.id AS item_id, i.number AS item_number, i.run_id, up.full_name AS proposed_by_name, ud.full_name AS decided_by_name,
+            j.proposed_by
+     FROM otc.adjustments j JOIN otc.accounts a ON a.id = j.account_id
+     LEFT JOIN otc.recon_items i ON i.id = j.recon_item_id
+     JOIN public.users up ON up.id = j.proposed_by LEFT JOIN public.users ud ON ud.id = j.decided_by
+     WHERE ($1::text IS NULL OR j.status = $1) AND ($2::uuid IS NULL OR i.run_id = $2)
+     ORDER BY j.created_at DESC LIMIT 200`,
+    [filter.status ?? null, filter.runId ?? null],
+  );
+  return r.rows;
+}
+
 export async function listRuns(ctx: Pick<Ctx, 'tx'>, filter: { date?: string; status?: RunStatus }) {
   const r = await ctx.tx.query(
     `SELECT r.id, to_char(r.business_date,'YYYY-MM-DD') AS business_date, r.status, a.code AS account_code,

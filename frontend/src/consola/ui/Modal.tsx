@@ -39,6 +39,19 @@ export interface ConfirmValues {
   reason: string;
   mfaCode?: string;
   idempotencyKey: string;
+  /** Valores de los campos adicionales, ya recortados. */
+  fields: Record<string, string>;
+}
+
+export interface ConfirmField {
+  name: string;
+  label: string;
+  placeholder?: string;
+  hint?: string;
+  optional?: boolean;
+  mono?: boolean;
+  /** Devuelve el error a mostrar, o null si el valor sirve. Es una ayuda: el servidor valida de nuevo. */
+  validate?: (v: string) => string | null;
 }
 
 export interface ConfirmConfig {
@@ -56,6 +69,8 @@ export interface ConfirmConfig {
   /** Casilla de verificación explícita para operaciones con dinero o irreversibles. */
   acknowledge?: string;
   extra?: ReactNode;
+  /** Campos que la operación necesita (referencia, hash, monto…), antes del motivo. */
+  fields?: ConfirmField[];
   onConfirm: (v: ConfirmValues) => Promise<unknown>;
 }
 
@@ -69,20 +84,30 @@ export function ConfirmDialog({ config, onClose, onDone }: { config: ConfirmConf
   const [reason, setReason] = useState('');
   const [code, setCode] = useState('');
   const [ack, setAck] = useState(false);
+  const [values, setValues] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
   const min = config.reason?.minLength ?? 3;
   const reasonOk = !config.reason || (config.reason.optional && !reason.trim()) || reason.trim().length >= min;
   const codeOk = !config.stepUp || /^\d{6}$/.test(code);
-  const ready = reasonOk && codeOk && (!config.acknowledge || ack);
+  const fieldErrors = Object.fromEntries(
+    (config.fields ?? []).map((f) => {
+      const v = (values[f.name] ?? '').trim();
+      if (!v) return [f.name, f.optional ? null : 'Obligatorio'];
+      return [f.name, f.validate ? f.validate(v) : null];
+    }),
+  );
+  const fieldsOk = Object.values(fieldErrors).every((e) => !e);
+  const ready = reasonOk && codeOk && fieldsOk && (!config.acknowledge || ack);
 
   const submit = async () => {
     if (!ready || busy) return;
     setBusy(true);
     setError(null);
     try {
-      const result = await config.onConfirm({ reason: reason.trim(), mfaCode: config.stepUp ? code : undefined, idempotencyKey: key });
+      const trimmed = Object.fromEntries(Object.entries(values).map(([k, v]) => [k, v.trim()]));
+      const result = await config.onConfirm({ reason: reason.trim(), mfaCode: config.stepUp ? code : undefined, idempotencyKey: key, fields: trimmed });
       notifyChange();
       onDone?.(result);
       onClose();
@@ -122,6 +147,24 @@ export function ConfirmDialog({ config, onClose, onDone }: { config: ConfirmConf
           </div>
         )}
         {config.extra}
+        {config.fields?.map((f) => {
+          const v = values[f.name] ?? '';
+          return (
+            <Field key={f.name} label={f.label} required={!f.optional} hint={f.hint} error={v.trim() ? fieldErrors[f.name] : null}>
+              {(id) => (
+                <Input
+                  id={id}
+                  value={v}
+                  placeholder={f.placeholder}
+                  className={`input ${f.mono ? 'mono' : ''}`}
+                  autoComplete="off"
+                  spellCheck={false}
+                  onChange={(e) => setValues((all) => ({ ...all, [f.name]: e.target.value }))}
+                />
+              )}
+            </Field>
+          );
+        })}
         {config.reason && (
           <Field label={config.reason.label} required={!config.reason.optional} hint={config.reason.optional ? 'Opcional. Queda en la auditoría.' : `Mínimo ${min} caracteres. Queda en la auditoría.`}>
             {(id) => <Textarea id={id} value={reason} placeholder={config.reason!.placeholder} onChange={(e) => setReason(e.target.value)} maxLength={500} />}

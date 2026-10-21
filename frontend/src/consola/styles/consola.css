@@ -392,3 +392,5 @@ textarea.input { resize: vertical; min-height: 64px; }
 .plain-list li:last-child { border-bottom: none; }
 .plain-list .cell-sub { flex-basis: 100%; }
 @media (max-width: 1640px) { .split .table .col-secondary { display: none; } }
+.sim-panel { border-style: dashed; border-color: #f2c94c; background: #fffbea; }
+.transfer-mini { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }

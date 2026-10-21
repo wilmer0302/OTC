@@ -2,6 +2,7 @@ import type { ComponentType } from 'react';
 import type { Route } from '../app/router';
 import Inicio from './inicio/Inicio';
 import Cotizaciones from './cotizaciones/Cotizaciones';
+import Ordenes from './ordenes/Ordenes';
 import { Pending } from './Pending';
 import Solicitudes from './solicitudes/Solicitudes';
 
@@ -14,7 +15,7 @@ export const MODULES: Record<string, ComponentType<PageProps>> = {
   inicio: Inicio,
   solicitudes: Solicitudes,
   cotizaciones: Cotizaciones,
-  ordenes: Pending,
+  ordenes: Ordenes,
   liquidez: Pending,
   transferencias: Pending,
   conciliaciones: Pending,

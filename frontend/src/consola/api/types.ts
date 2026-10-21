@@ -296,7 +296,7 @@ export interface LedgerEntry {
   reverses_entry_id: string | null;
   created_at: string;
   /** Monto con signo: positivo entra a la cuenta, negativo sale. */
-  lines: { account: string; asset: Asset; amount: string }[];
+  lines: { account: string; asset: Asset; amount: string | number }[];
 }
 
 export interface ReconRunRow {

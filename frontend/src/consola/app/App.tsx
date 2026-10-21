@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { setCsrf, setOnSessionLost } from '../api/client';
 import { auth, system as systemApi } from '../api/endpoints';
 import type { Me, SystemInfo } from '../api/types';
+import { ErrorBoundary } from '../ui/ErrorBoundary';
 import { ToastProvider } from '../ui/Feedback';
 import { Loading } from '../ui/Layout';
 import { MODULES } from '../modules';
@@ -64,7 +65,9 @@ export default function App() {
     <SessionCtx.Provider value={session}>
       <ToastProvider>
         <Shell active={nav.key}>
-          <Page route={route} />
+          <ErrorBoundary resetKey={window.location.hash}>
+            <Page route={route} />
+          </ErrorBoundary>
         </Shell>
       </ToastProvider>
     </SessionCtx.Provider>

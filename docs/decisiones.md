@@ -32,6 +32,12 @@ Fecha de inicio: 2026-10-20. El diseño completo está en el documento de Fase 1
 | 24 | La plataforma entrega la instrucción de envío (monto en unidades base, origen, destino de la lista blanca) y registra el hash; no firma | Principio 7 | Implementada (fase 4) |
 | 25 | Un envío cancelado antes de salir devuelve la reserva a la orden; el reintento es una transferencia nueva enlazada, con aprobación y segundo factor | Especificación: una fallida nunca se reactiva | Implementada (fase 4) |
 | 26 | Traslados entre cuentas propias: reservan en el origen al autorizarse; el destino sube solo al confirmarse. Las reservas pueden pertenecer a una transferencia sin orden (migración 010, no destructiva) | Historia H5.2 | Implementada (fase 4) |
+| 27 | La consulta a la red o al banco se hace fuera de la transacción; el resultado se aplica solo si la transferencia sigue esperando ese resultado, si no queda como evidencia tardía | Regla de respuestas tardías | Implementada (fase 4) |
+| 28 | Confirmada exige el umbral de confirmaciones y que coincidan destino, sentido y monto; exitosa a otra dirección o por otro monto va a revisión | Historia H8.2 | Implementada (fase 4) |
+| 29 | Al resolver una revisión, Confirmada exige evidencia guardada que coincida; Fallida exige evidencia de falla o que nunca apareció | No inventar confirmaciones (principio 3) | Implementada (fase 4) |
+| 30 | Toda llamada a una integración queda registrada con hora, duración y resultado; la evidencia se guarda cuando cambia | Historia H7.2 sin llenar la base con repeticiones | Implementada (fase 4) |
+| 31 | Simulación sandbox (`/api/v1/sandbox/...`, permiso de simulación) solo existe en modo DEMO | Principio 4 | Implementada (fase 4) |
+| 32 | Se retiró la función de la fase 4 que daba el cobro por confirmado sin evidencia; ahora el cobro avanza solo con la confirmación del banco o la red | Principio 3 | Implementada (fase 4) |
 
 ## Supuestos abiertos
 
@@ -45,6 +51,9 @@ Fecha de inicio: 2026-10-20. El diseño completo está en el documento de Fase 1
 
 - Segundo factor de autenticación: implementado en `/api/v1` (fase 4); la demo anterior aún no lo usa.
 - Adaptadores reales: TRM oficial, nodos o indexadores de Tron y BSC, Bancolombia.
+- Estado de salud de cada integración (degradada tras fallas repetidas, bloqueo de operaciones que dependen de ella).
+- Costos de red (gas en BSC, energía en Tron) en el libro contable.
+- Dirección de depósito de las cuentas de exchange, para verificar traslados hacia el exchange.
 - Integración con Trezor para firmar salidas.
 - Política de qué hacer si el mercado USDT/COP se aleja de la TRM durante el día.
 - KYC/AML y reportes regulatorios en Colombia.

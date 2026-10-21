@@ -210,13 +210,6 @@ export async function registerPayment(ctx: Ctx, orderId: string, input: { refere
   return { order: moved, transfer };
 }
 
-/** El banco o la red confirmó el cobro (lo invoca el módulo de confirmaciones, con la evidencia). */
-export async function onCollectionConfirmed(ctx: Ctx, orderId: string, evidence: Record<string, unknown>) {
-  const order = await lockOrder(ctx.tx, orderId);
-  if (order.status !== 'COBRO_EN_VERIFICACION') return order; // en revisión u otro estado: decide un responsable
-  return moveOrder(ctx, order, 'COBRO_CONFIRMADO', 'Cobro confirmado con evidencia externa', evidence);
-}
-
 /**
  * Aprobación de la entrega. Cada persona aprueba una vez; cuando se completan las que exige la
  * política con la que nació la orden, la orden queda autorizada, nace la transferencia de entrega
@@ -247,6 +240,38 @@ export async function approveDelivery(ctx: Ctx, orderId: string, note: string | 
   if (!reservation) throw new Error(`La orden ${order.number} no tiene reserva abierta`);
   await lockReservation(ctx, reservation.id, transfer.id);
   return { order: authorized, approvals: count, required: order.required_approvals, transfer };
+}
+
+/**
+ * Avanza la orden con la evidencia que ya existe: cobro confirmado pasa a Cobro confirmado; con
+ * cobro y entrega confirmados, a Completada. Se llama al confirmar una transferencia y cuando
+ * una orden vuelve de revisión. En revisión no avanza: decide un responsable.
+ */
+export async function advanceWithEvidence(ctx: Ctx, order: OrderRow): Promise<OrderRow> {
+  const t = await transfersOf(ctx.tx, order.id);
+  const collected = t.some((x) => x.purpose === 'COBRO' && x.status === 'CONFIRMADA');
+  const delivered = t.some((x) => x.purpose === 'ENTREGA' && x.status === 'CONFIRMADA');
+  if (order.status === 'COBRO_EN_VERIFICACION' && collected) {
+    return moveOrder(ctx, order, 'COBRO_CONFIRMADO', 'Cobro confirmado con evidencia externa');
+  }
+  if (order.status === 'ENTREGA_ENVIADA' && collected && delivered) {
+    return moveOrder(ctx, order, 'COMPLETADA', 'Ambas partes recibieron sus fondos (cobro y entrega confirmados)');
+  }
+  return order;
+}
+
+/** La entrega falló de forma demostrada: la orden vuelve a autorizada para un reintento aprobado. */
+export async function onDeliveryFailed(ctx: Ctx, orderId: string, reason: string) {
+  const order = await lockOrder(ctx.tx, orderId);
+  if (order.status !== 'ENTREGA_ENVIADA') return order;
+  return moveOrder(ctx, order, 'ENTREGA_AUTORIZADA', `Entrega fallida: ${reason}`);
+}
+
+/** Algo no cuadra en un movimiento de la orden: la orden va a revisión si todavía puede. */
+export async function reviewFromTransfer(ctx: Ctx, orderId: string, reason: string) {
+  const order = await lockOrder(ctx.tx, orderId);
+  if (!orderCanMove(order.status, 'EN_REVISION')) return order;
+  return sendToReview(ctx, order, reason);
 }
 
 async function sendToReview(ctx: Ctx, order: OrderRow, reason: string): Promise<OrderRow> {
@@ -287,7 +312,7 @@ export async function resolveReview(ctx: Ctx, orderId: string, action: 'RESUME' 
       [order.id, back, note.trim(), ctx.now()],
     );
     await recordTransition(ctx, 'order', order.id, 'EN_REVISION', back, note.trim());
-    result = r.rows[0];
+    result = await advanceWithEvidence(ctx, r.rows[0]);
   } else {
     result = await cancelWithoutMoney(ctx, order, note.trim());
   }

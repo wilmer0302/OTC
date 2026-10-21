@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { liquiditySummary } from '../../src/modules/liquidity/service.js';
-import { approveDelivery, onCollectionConfirmed, registerPayment, type OrderRow } from '../../src/modules/orders/service.js';
+import { approveDelivery, registerPayment, type OrderRow } from '../../src/modules/orders/service.js';
 import { recordTrm } from '../../src/modules/pricing/service.js';
 import { acceptQuote, createQuote, createRequest } from '../../src/modules/trading/service.js';
 import { transferCanMove } from '../../src/modules/transfers/domain.js';
@@ -12,7 +12,7 @@ import {
   retryDelivery,
   type TransferRow,
 } from '../../src/modules/transfers/service.js';
-import { as, asSystem, call, expectCode, httpLogin, newKey, setupEnv, stepUp, type Env } from './helpers.js';
+import { as, call, confirmCollection, expectCode, httpLogin, newKey, setupEnv, stepUp, type Env } from './helpers.js';
 
 const hash = (n: number, net: 'TRON' | 'BSC') => (net === 'BSC' ? '0x' : '') + n.toString(16).padStart(64, 'c');
 
@@ -37,7 +37,7 @@ describe('envíos, reintentos y traslados', () => {
     if (!r.ok) throw r.error;
     const ref = side === 'SELL' ? `BCOL-${++refs}` : hash(++refs + 1000, network);
     await as(env, 'trader', (ctx) => registerPayment(ctx, r.order.id, { reference: ref }));
-    await asSystem(env, (ctx) => onCollectionConfirmed(ctx, r.order.id, { source: 'prueba' }));
+    await confirmCollection(env, r.order.id);
     const a = await as(env, 'trader', (ctx) => approveDelivery(ctx, r.order.id, null));
     return { order: a.order as OrderRow, transfer: a.transfer as TransferRow };
   }

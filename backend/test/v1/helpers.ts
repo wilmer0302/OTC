@@ -227,3 +227,19 @@ export async function asSystem<T>(env: Env, fn: (ctx: Ctx) => Promise<T>): Promi
   const { SYSTEM_ACTOR } = await import('../../src/platform/context.js');
   return inTransaction(env.db, (tx) => fn({ tx, actor: SYSTEM_ACTOR, integrations: sandboxIntegrations(env.db), now: env.clock.now }));
 }
+
+/** Revisa una transferencia como lo haría el trabajador (consulta la red o el banco sandbox). */
+export async function checkNow(env: Env, transferId: string) {
+  const { checkTransfer } = await import('../../src/modules/confirmations/service.js');
+  const { SYSTEM_ACTOR } = await import('../../src/platform/context.js');
+  return checkTransfer({ db: env.db, integrations: sandboxIntegrations(env.db), now: env.clock.now, actor: SYSTEM_ACTOR }, transferId);
+}
+
+/** Simula en el sandbox que el banco o la red confirmaron el cobro de la orden y lo revisa. */
+export async function confirmCollection(env: Env, orderId: string) {
+  const { simulateFor } = await import('../../src/modules/sandbox/service.js');
+  const t = await env.db.query(`SELECT id, rail FROM otc.transfers WHERE order_id = $1 AND purpose = 'COBRO' AND status <> 'FALLIDA'`, [orderId]);
+  const { id, rail } = t.rows[0];
+  await as(env, 'admin', (ctx) => simulateFor(ctx, id, rail === 'BANK' ? { status: 'SETTLED' } : { status: 'SUCCESS', confirmations: 100 }));
+  return checkNow(env, id);
+}

@@ -6,14 +6,13 @@ import {
   cancelOrder,
   getOrder,
   markForReview,
-  onCollectionConfirmed,
   registerPayment,
   resolveReview,
   type OrderRow,
 } from '../../src/modules/orders/service.js';
 import { recordTrm } from '../../src/modules/pricing/service.js';
 import { acceptQuote, createQuote, createRequest } from '../../src/modules/trading/service.js';
-import { as, asSystem, call, expectCode, httpLogin, newKey, setupEnv, stepUp, type Env } from './helpers.js';
+import { as, call, confirmCollection, expectCode, httpLogin, newKey, setupEnv, stepUp, type Env } from './helpers.js';
 
 const TRON_HASH = 'a'.repeat(63) + '1';
 const BSC_HASH = '0x' + 'b'.repeat(63) + '2';
@@ -96,7 +95,7 @@ describe('ciclo de la orden', () => {
     expect(o.required_approvals).toBe(2);
     await as(env, 'trader', (ctx) => registerPayment(ctx, o.id, { reference: 'BCOL-0100' }));
     await expectCode(as(env, 'trader', (ctx) => approveDelivery(ctx, o.id, null)), 'INVALID_STATE'); // falta el cobro confirmado
-    await asSystem(env, (ctx) => onCollectionConfirmed(ctx, o.id, { source: 'prueba' }));
+    await confirmCollection(env, o.id);
     expect(await status(o.id)).toBe('COBRO_CONFIRMADO');
 
     const first = await as(env, 'trader', (ctx) => approveDelivery(ctx, o.id, 'Primera firma'));
@@ -130,7 +129,7 @@ describe('ciclo de la orden', () => {
     const after = await newOrder('SELL', '100');
     expect(after.required_approvals).toBe(2);
     await as(env, 'trader', (ctx) => registerPayment(ctx, before.id, { reference: 'BCOL-0200' }));
-    await asSystem(env, (ctx) => onCollectionConfirmed(ctx, before.id, { source: 'prueba' }));
+    await confirmCollection(env, before.id);
     const r = await as(env, 'trader', (ctx) => approveDelivery(ctx, before.id, null));
     expect(r.order.status).toBe('ENTREGA_AUTORIZADA');
   });
@@ -154,12 +153,13 @@ describe('ciclo de la orden', () => {
     await expectCode(as(env, 'auditor', (ctx) => markForReview(ctx, o.id, 'no cuadra')), 'FORBIDDEN');
     await as(env, 'cumplimiento', (ctx) => markForReview(ctx, o.id, 'El nombre del pagador no coincide'));
     expect(await status(o.id)).toBe('EN_REVISION');
-    // En revisión no avanza: la confirmación que llegue se guarda, pero el estado no cambia solo.
-    await asSystem(env, (ctx) => onCollectionConfirmed(ctx, o.id, { source: 'prueba' }));
+    // En revisión no avanza: el cobro se confirma con la evidencia, pero la orden espera la decisión.
+    await confirmCollection(env, o.id);
     expect(await status(o.id)).toBe('EN_REVISION');
     await expectCode(as(env, 'trader', (ctx) => resolveReview(ctx, o.id, 'RESUME', 'ok')), 'FORBIDDEN');
     await as(env, 'admin', (ctx) => resolveReview(ctx, o.id, 'RESUME', 'Pagador verificado por teléfono'));
-    expect(await status(o.id)).toBe('COBRO_EN_VERIFICACION');
+    // Al reanudar, avanza con la evidencia que ya existe.
+    expect(await status(o.id)).toBe('COBRO_CONFIRMADO');
     const c = await env.db.query(`SELECT status FROM otc.cases WHERE entity = 'order' AND entity_id = $1`, [o.id]);
     expect(c.rows[0].status).not.toBe('ABIERTO');
 
@@ -179,7 +179,7 @@ describe('ciclo de la orden', () => {
     expect(paid.body.order.status).toBe('COBRO_EN_VERIFICACION');
     const replay = await call(env, op, 'POST', `/orders/${o.id}/payment`, { reference: TRON_HASH }, { 'idempotency-key': k });
     expect(replay.body.transfer.id).toBe(paid.body.transfer.id);
-    await asSystem(env, (ctx) => onCollectionConfirmed(ctx, o.id, { source: 'prueba' }));
+    await confirmCollection(env, o.id);
 
     const noCode = await call(env, op, 'POST', `/orders/${o.id}/approve`, {}, { 'idempotency-key': newKey() });
     expect([noCode.status, noCode.body.code]).toEqual([401, 'STEP_UP_REQUIRED']);

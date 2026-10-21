@@ -423,6 +423,7 @@ export interface LimitChange {
   proposed_at: string;
   decided_at: string | null;
   decision_note: string | null;
+  proposed_by?: string;
   proposed_by_name: string;
   decided_by_name: string | null;
 }

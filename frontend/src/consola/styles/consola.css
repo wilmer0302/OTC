@@ -414,3 +414,9 @@ textarea.input { resize: vertical; min-height: 64px; }
 .dest-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .dest-list li { display: block; }
 .dest-list li > * + * { margin-top: 4px; }
+
+/* Usuarios y configuración */
+.badge-row { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.fieldset { border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px 4px; margin: 4px 0 12px; }
+.fieldset legend { font-size: 13px; font-weight: 600; padding: 0 4px; }
+.role-picker > div { padding: 4px 0; }

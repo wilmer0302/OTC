@@ -143,4 +143,6 @@ export const ENTITY: Record<string, string> = {
   audit_anchor: 'Ancla de auditoría',
   system: 'Sistema',
   settings: 'Parámetros',
+  desk_settings: 'Parámetros de la mesa',
+  policy_change: 'Cambio de límite',
 };

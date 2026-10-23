@@ -18,6 +18,29 @@ Fecha de inicio: 2026-10-20. El diseño completo está en el documento de Fase 1
 | 10 | Auditoría solo-agregar con hash encadenado; asientos contables inmutables (triggers) | Detectar alteraciones | Implementada |
 | 11 | Operaciones de dinero idempotentes (`Idempotency-Key`) y referencias únicas | Un reintento no duplica pagos | Implementada |
 | 12 | `APP_MODE=PRODUCTION` se niega a arrancar | No hay adaptadores reales; evita uso accidental | Implementada |
+| 13 | Backend v1 en el esquema `otc` y bajo `/api/v1`; la demo anterior (`/api`) sigue funcionando hasta que el frontend migre | No romper lo existente (principio 2) | Implementada (fase 4) |
+| 14 | Saldos de liquidez: libro de doble partida con cuadre verificado por la base al confirmar; saldo real nunca negativo; reservas con bloqueo de cuenta | Dos órdenes nunca usan el mismo saldo | Implementada (fase 4) |
+| 15 | Reversos y ajustes sin endpoint propio: solo los hacen los flujos de órdenes y conciliación (ajustes con doble firma) | Nadie mueve saldos a mano | Implementada (fase 4) |
+| 16 | Una solicitud que falla la validación se guarda como Rechazada con todos los motivos (no se descarta) | Trazabilidad de lo que pidió el cliente | Implementada (fase 4) |
+| 17 | Aceptar una cotización serializa con un bloqueo global de límites; la reserva y la orden se crean en la misma transacción | Dos aceptaciones simultáneas no superan límites ni liquidez | Implementada (fase 4) |
+| 18 | Una solicitud validada que vence sin cotización pasa a Cancelada (la especificación reserva Vencida para las cotizadas) | La especificación no permite Validada → Vencida | Implementada (fase 4), revisable |
+| 19 | Proceso trabajador separado (`worker`) para vencimientos y seguimiento, misma imagen que el backend | Arquitectura aprobada en la fase 3 | Implementada (fase 4) |
+| 20 | Confirmación reforzada: aprobaciones y cambios de configuración piden otra vez el código del segundo factor (cabecera `X-MFA-Code`, un solo uso) | Historia H13.2 | Implementada (fase 4) |
+| 21 | Un pago reportado después del plazo no vence la orden: la manda a revisión con un pendiente abierto | El dinero pudo haber llegado; ante la duda, revisión | Implementada (fase 4) |
+| 22 | Una orden solo se cancela sin dinero en movimiento; con pago reportado o confirmado se requiere devolución | Especificación: "una orden no se cancela después de que el cliente pagó" | Implementada (fase 4) |
+| 23 | Con la política "una persona", quien creó la orden puede aprobar la entrega (la mesa opera con un trader central); con dos firmas, deben ser personas distintas | Dato del negocio: un trader central | Implementada (fase 4), revisable |
+| 24 | La plataforma entrega la instrucción de envío (monto en unidades base, origen, destino de la lista blanca) y registra el hash; no firma | Principio 7 | Implementada (fase 4) |
+| 25 | Un envío cancelado antes de salir devuelve la reserva a la orden; el reintento es una transferencia nueva enlazada, con aprobación y segundo factor | Especificación: una fallida nunca se reactiva | Implementada (fase 4) |
+| 26 | Traslados entre cuentas propias: reservan en el origen al autorizarse; el destino sube solo al confirmarse. Las reservas pueden pertenecer a una transferencia sin orden (migración 010, no destructiva) | Historia H5.2 | Implementada (fase 4) |
+| 27 | La consulta a la red o al banco se hace fuera de la transacción; el resultado se aplica solo si la transferencia sigue esperando ese resultado, si no queda como evidencia tardía | Regla de respuestas tardías | Implementada (fase 4) |
+| 28 | Confirmada exige el umbral de confirmaciones y que coincidan destino, sentido y monto; exitosa a otra dirección o por otro monto va a revisión | Historia H8.2 | Implementada (fase 4) |
+| 29 | Al resolver una revisión, Confirmada exige evidencia guardada que coincida; Fallida exige evidencia de falla o que nunca apareció | No inventar confirmaciones (principio 3) | Implementada (fase 4) |
+| 30 | Toda llamada a una integración queda registrada con hora, duración y resultado; la evidencia se guarda cuando cambia | Historia H7.2 sin llenar la base con repeticiones | Implementada (fase 4) |
+| 31 | Simulación sandbox (`/api/v1/sandbox/...`, permiso de simulación) solo existe en modo DEMO | Principio 4 | Implementada (fase 4) |
+| 32 | Se retiró la función de la fase 4 que daba el cobro por confirmado sin evidencia; ahora el cobro avanza solo con la confirmación del banco o la red | Principio 3 | Implementada (fase 4) |
+| 33 | Conciliación por cuenta y día de Bogotá: el extracto del banco o de la red (o uno cargado a mano para el exchange) se cruza por referencia, sentido y monto; lo que el libro confirmó y el extracto no muestra queda Sin contrapartida | Especificación, módulo 10 | Implementada (fase 4) |
+| 34 | Ajustes contra la cuenta ADJUSTMENTS del activo, propuestos por Tesorería y aprobados por Administración (otra persona, segundo factor); el asiento original no se toca | Historias H10.2 y H11.2 | Implementada (fase 4) |
+| 35 | Una partida en revisión se puede aclarar sin ajuste solo por Administración, con motivo y segundo factor | Diferencias de fecha que no son dinero | Implementada (fase 4), revisable |
 
 ## Supuestos abiertos
 
@@ -29,8 +52,11 @@ Fecha de inicio: 2026-10-20. El diseño completo está en el documento de Fase 1
 
 ## Pendiente para versiones siguientes
 
-- Segundo factor de autenticación (diseñado, no incluido en la demo).
+- Segundo factor de autenticación: implementado en `/api/v1` (fase 4); la demo anterior aún no lo usa.
 - Adaptadores reales: TRM oficial, nodos o indexadores de Tron y BSC, Bancolombia.
+- Estado de salud de cada integración (degradada tras fallas repetidas, bloqueo de operaciones que dependen de ella).
+- Costos de red (gas en BSC, energía en Tron) en el libro contable.
+- Dirección de depósito de las cuentas de exchange, para verificar traslados hacia el exchange.
 - Integración con Trezor para firmar salidas.
 - Política de qué hacer si el mercado USDT/COP se aleja de la TRM durante el día.
 - KYC/AML y reportes regulatorios en Colombia.

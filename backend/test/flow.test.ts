@@ -25,13 +25,21 @@ async function call(user: string, method: 'GET' | 'POST' | 'PUT' | 'PATCH', url:
 
 beforeAll(async () => {
   db = createPool(DATABASE_URL);
-  await db.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public;');
+  await db.query('DROP SCHEMA IF EXISTS otc CASCADE; DROP SCHEMA public CASCADE; CREATE SCHEMA public;');
   await migrate(db);
   await seedDemo(db, 'demo1234');
   app = buildApp({
     db,
     adapters: simulatedAdapters(),
-    config: { mode: 'DEMO', port: 0, databaseUrl: DATABASE_URL, jwtSecret: 'x'.repeat(40), corsOrigin: '*' },
+    config: {
+      mode: 'DEMO',
+      port: 0,
+      databaseUrl: DATABASE_URL,
+      jwtSecret: 'x'.repeat(40),
+      corsOrigin: '*',
+      mfaKeyHex: '0'.repeat(64),
+      cookieSecure: false,
+    },
   });
   for (const u of ['admin', 'trader', 'tesorero2', 'auditor']) {
     const res = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { username: u, password: 'demo1234' } });

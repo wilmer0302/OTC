@@ -40,6 +40,10 @@ async function insertVersion(
 
 export async function createCounterparty(ctx: Ctx, input: NewCounterparty) {
   authorize(ctx.actor, 'counterparty.create');
+  // La mesa solo vincula empresas (decisión 44): persona jurídica identificada con NIT.
+  if (input.personType !== 'JURIDICA' || input.documentType !== 'NIT') {
+    throw invalid('Solo se vinculan empresas: persona jurídica con NIT');
+  }
   const doc = input.documentNumber.trim().toUpperCase();
   const dup = await ctx.tx.query(
     'SELECT number FROM otc.counterparties WHERE document_type = $1 AND document_number = $2',

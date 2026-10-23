@@ -45,6 +45,7 @@ const userId = async (tx: Tx, username: string) =>
   (await tx.query('SELECT id FROM public.users WHERE username = $1', [username])).rows[0].id as string;
 
 // Clientes ficticios con KYC y destinos ya aprobados (propone el trader, aprueba Cumplimiento).
+// Todos son empresas, como los clientes del comprador; la plataforma admite también personas naturales.
 // Las direcciones tienen formato válido pero no pertenecen a nadie: son de prueba.
 export const DEMO_COUNTERPARTIES = [
   {
@@ -56,7 +57,7 @@ export const DEMO_COUNTERPARTIES = [
     bank: '1000000002', tron: 'TDemo2CaribeFicticia22222222222222', bsc: '0x00000000000000000000000000000000000a0002',
   },
   {
-    name: 'Persona natural en revisión (ficticio)', personType: 'NATURAL', docType: 'CC', doc: '1000000003', kyc: 'PENDIENTE',
+    name: 'Logística del Pacífico SAS (ficticio)', personType: 'JURIDICA', docType: 'NIT', doc: '900000003', kyc: 'PENDIENTE',
     bank: null, tron: null, bsc: null,
   },
 ] as const;

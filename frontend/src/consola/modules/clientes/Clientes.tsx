@@ -124,22 +124,16 @@ function NewClientDialog({ onClose }: { onClose: () => void }) {
         navigate(`clientes/${r.id}`);
       }}
     >
-      <p className="confirm-intro">El cliente queda con KYC pendiente: no se le cotiza hasta que Cumplimiento lo apruebe.</p>
+      <p className="confirm-intro">Solo se vinculan empresas, identificadas con NIT. El cliente queda con KYC pendiente: no se le cotiza hasta que Cumplimiento lo apruebe.</p>
       <div className="form-row">
         <Field label="Tipo" required>
           {(id) => <Select id={id} value={f.kind} onChange={(e) => set('kind', e.target.value)} options={Object.entries(KIND).map(([value, label]) => ({ value, label }))} />}
         </Field>
-        <Field label="Persona" required>
-          {(id) => <Select id={id} value={f.personType} onChange={(e) => { set('personType', e.target.value); set('documentType', e.target.value === 'JURIDICA' ? 'NIT' : 'CC'); }} options={Object.entries(PERSON).map(([value, label]) => ({ value, label }))} />}
-        </Field>
-        <Field label="Tipo de documento" required>
-          {(id) => <Select id={id} value={f.documentType} onChange={(e) => set('documentType', e.target.value)} options={Object.entries(DOC).map(([value, label]) => ({ value, label }))} />}
-        </Field>
-        <Field label="Número de documento" required error={f.documentNumber && !docOk ? '3 a 20 letras, números o guion' : null}>
+        <Field label="NIT" required hint="Solo se vinculan empresas (persona jurídica)" error={f.documentNumber && !docOk ? '3 a 20 letras, números o guion' : null}>
           {(id) => <Input id={id} value={f.documentNumber} onChange={(e) => set('documentNumber', e.target.value)} autoComplete="off" />}
         </Field>
       </div>
-      <Field label="Nombre o razón social" required>
+      <Field label="Razón social" required>
         {(id) => <Input id={id} value={f.legalName} onChange={(e) => set('legalName', e.target.value)} />}
       </Field>
       <div className="form-row">
@@ -348,7 +342,7 @@ function EditClientDialog({ c, onClose, onDone }: { c: CounterpartyDetail; onClo
       }}
     >
       <p className="confirm-intro">Los datos anteriores no se borran: queda una versión nueva con el motivo del cambio.</p>
-      <Field label="Nombre o razón social" required>
+      <Field label="Razón social" required>
         {(id) => <Input id={id} value={f.legalName} onChange={(e) => set('legalName', e.target.value)} />}
       </Field>
       <div className="form-row">

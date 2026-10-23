@@ -72,7 +72,7 @@ export function Login({ system, initialStep, notice, onDone }: { system: SystemI
           </span>
           <div>
             <strong>Mesa OTC</strong>
-            <span>USDT · COP</span>
+            <span>Consola de operación · USDT / COP</span>
           </div>
         </div>
         {system?.mode === 'DEMO' && (

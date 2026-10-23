@@ -1,37 +1,42 @@
 /* Consola OTC · estilo corporativo. Tokens en :root; componentes con clases simples. */
 :root {
-  --bg: #f3f5f8;
+  /* Imagen institucional: azul marino sobrio, filete dorado de marca, esquinas casi rectas, sin sombras. */
+  --bg: #f3f4f6;
   --surface: #ffffff;
-  --surface-2: #f8f9fb;
-  --ink: #172133;
-  --ink-2: #3a4558;
-  --muted: #5d687a;
-  --border: #dde2ea;
-  --border-strong: #c7cfdb;
-  --accent: #1f4fbf;
+  --surface-2: #f6f7f9;
+  --ink: #0e1a2b;
+  --ink-2: #2c3a4f;
+  --muted: #5a6476;
+  --border: #d8dde5;
+  --border-strong: #b7c0cd;
+  --accent: #0b3a6e;
   --accent-ink: #ffffff;
-  --accent-soft: #e8eefb;
-  --nav-bg: #0f1b2d;
-  --nav-ink: #c9d3e3;
-  --nav-active: #1c2c46;
-  --success: #15703d;
-  --success-soft: #e4f4ea;
-  --warning: #9a4b00;
-  --warning-soft: #fff1dc;
-  --danger: #b42318;
-  --danger-soft: #fdeceb;
-  --info: #1f4fbf;
-  --info-soft: #e8eefb;
-  --progress: #0e6a84;
-  --progress-soft: #e1f3f7;
-  --neutral: #4d5869;
-  --neutral-soft: #edf0f4;
-  --sim-bg: #fde68a;
-  --sim-ink: #5c2a00;
-  --radius: 8px;
-  --shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.08);
-  --shadow-lg: 0 12px 32px rgba(16, 24, 40, 0.18);
-  font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --accent-soft: #e6ecf4;
+  --accent-hover: #082c55;
+  --brand-rule: #a8844c;
+  --nav-bg: #0a1d36;
+  --nav-ink: #c2ccdb;
+  --nav-active: #10294b;
+  --success: #1d6b3f;
+  --success-soft: #e7f2ec;
+  --warning: #8a4b0b;
+  --warning-soft: #fbf0e1;
+  --danger: #a3241a;
+  --danger-soft: #f9eceb;
+  --info: #0b3a6e;
+  --info-soft: #e6ecf4;
+  --progress: #1f5d73;
+  --progress-soft: #e4eff3;
+  --neutral: #4c5768;
+  --neutral-soft: #edf0f3;
+  --sim-bg: #f1e2b3;
+  --sim-ink: #4a3500;
+  --radius: 3px;
+  --shadow: none;
+  --shadow-lg: 0 10px 28px rgba(10, 29, 54, 0.22);
+  --font-sans: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, system-ui, sans-serif;
+  --font-serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, 'Times New Roman', serif;
+  font-family: var(--font-sans);
   font-size: 14px;
   line-height: 1.45;
   color: var(--ink);
@@ -420,3 +425,75 @@ textarea.input { resize: vertical; min-height: 64px; }
 .fieldset { border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px 4px; margin: 4px 0 12px; }
 .fieldset legend { font-size: 13px; font-weight: 600; padding: 0 4px; }
 .role-picker > div { padding: 4px 0; }
+
+/* ---------- Imagen institucional ---------- */
+/* Ajustes de presentación sobre los componentes de arriba: títulos con serifa, etiquetas en versalitas,
+   estados rectangulares, filete dorado de marca y nada de sombras ni esquinas redondeadas. */
+.env-banner { border-bottom-color: #d6bd6f; font-size: 12px; }
+.sim-tag { border-color: #d6bd6f; border-radius: 2px; }
+
+.sidebar { border-right: 1px solid #06152a; }
+.sidebar-brand { padding: 20px 18px 16px; border-bottom: 1px solid rgba(168, 132, 76, 0.45); margin-bottom: 8px; }
+.sidebar-brand strong, .login-brand strong { font-family: var(--font-serif); font-size: 17px; font-weight: 600; letter-spacing: 0.01em; }
+.sidebar-brand div span, .login-brand div span { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.12em; color: #9aa8bd; margin-top: 2px; }
+.login-brand div span { color: var(--muted); }
+.brand-mark { border-radius: 2px; background: var(--nav-bg); border: 1px solid var(--brand-rule); color: #e9dcc3; font-family: var(--font-serif); font-weight: 600; font-size: 11px; letter-spacing: 0.1em; }
+.sidebar ul { padding: 0; }
+.sidebar li a { border-radius: 0; padding: 9px 18px; font-weight: 500; border-left: 3px solid transparent; }
+.sidebar li a:hover { background: #0e2442; }
+.sidebar li a.is-active { background: var(--nav-active); box-shadow: none; border-left-color: var(--brand-rule); }
+.nav-badge { border-radius: 2px; background: #9b2c22; }
+
+.topbar { border-bottom: 1px solid var(--border); box-shadow: inset 0 -2px 0 var(--accent); }
+
+.page-header { padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+.page-header h1 { font-family: var(--font-serif); font-size: 25px; font-weight: 600; letter-spacing: 0; }
+.page-subtitle { font-size: 13.5px; }
+
+.card { box-shadow: none; }
+.card-head { background: var(--surface-2); padding: 11px 18px; }
+.card-head h2 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-2); }
+.drawer { box-shadow: none; border-top: 2px solid var(--accent); }
+.drawer-head h2 { font-family: var(--font-serif); font-size: 18px; font-weight: 600; }
+.modal { border-radius: var(--radius); border-top: 3px solid var(--accent); }
+.modal-head h2 { font-family: var(--font-serif); font-size: 18px; font-weight: 600; }
+.modal-foot { border-radius: 0 0 var(--radius) var(--radius); }
+
+.stat-tile { box-shadow: none; border-top: 2px solid var(--accent); }
+.stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+.stat-value { font-weight: 600; letter-spacing: 0; }
+
+.badge { border-radius: 2px; padding: 2px 7px; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; gap: 0; }
+.badge-dot { display: none; }
+.tone-neutral.badge { border-color: #d3d9e1; }
+.tone-info.badge { border-color: #c3d0e2; }
+.tone-progress.badge { border-color: #c2dbe3; }
+.tone-success.badge { border-color: #bfdccb; }
+.tone-warning.badge { border-color: #ecd2ad; }
+.tone-danger.badge { border-color: #e6bfbb; }
+
+.btn { border-radius: var(--radius); }
+.btn-primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn:focus-visible, .input:focus-visible, .icon-btn:focus-visible, a:focus-visible, tr:focus-visible { outline-color: var(--accent); }
+.input, .segmented { border-radius: var(--radius); }
+.notice { border-radius: var(--radius); border-left-width: 3px; }
+.field label { font-size: 12.5px; }
+
+.table th { background: #eef1f5; color: var(--ink-2); font-size: 10.5px; letter-spacing: 0.08em; font-weight: 700; border-bottom: 1px solid var(--border-strong); }
+.table tr.is-clickable:hover td, .table tr.is-clickable:nth-child(even):hover td { background: #eef3f9; }
+.table tbody tr:nth-child(even):not(.is-selected) td { background: #fafbfc; }
+
+.tab { font-weight: 600; font-size: 13.5px; }
+.tab.is-active { color: var(--accent); }
+.tab-count { border-radius: 2px; background: #9b2c22; }
+
+.price-box, .action-panel, .confirm-summary, .internal-box, .fieldset, .json-block { border-radius: var(--radius); }
+.price-box .big { font-weight: 600; letter-spacing: 0; }
+.toast { border-radius: var(--radius); }
+.copy-value code, .secret { border-radius: 2px; }
+.queue-count, .chip-link { border-radius: 2px; }
+.bar, .bar-fill { border-radius: 0; }
+
+.login-screen { background: var(--nav-bg); box-shadow: inset 0 4px 0 var(--brand-rule); }
+.login-panel { border-radius: var(--radius); border-top: 3px solid var(--accent); padding: 30px 30px 24px; }
+.login-panel h1 { font-family: var(--font-serif); font-size: 21px; font-weight: 600; }

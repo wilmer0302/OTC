@@ -28,7 +28,7 @@ export function Shell({ active, children }: { active: string; children: ReactNod
             </span>
             <div>
               <strong>Mesa OTC</strong>
-              <span>USDT · COP</span>
+              <span>Consola de operación</span>
             </div>
           </div>
           <ul>

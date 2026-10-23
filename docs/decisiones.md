@@ -49,6 +49,7 @@ Fecha de inicio: 2026-10-20. El diseño completo está en el documento de Fase 1
 | 41 | Lecturas nuevas para la consola: `GET /system` (modo, público), `/dashboard`, `/quotes`, `/destinations`, `/adjustments` y filtros de `/transfers` (red y búsqueda) | Bandejas y métricas sin calcular nada en el navegador | Implementada (fase 5) |
 | 42 | Los botones de aprobar se ocultan a quien propuso (ajustes, destinos, límites); el servidor rechaza igual la autoaprobación | Separación de funciones | Implementada (fase 5) |
 | 43 | La consola no ofrece cambiar roles ni desactivar el propio usuario; el servidor solo exige que quede un administrador activo | Evitar errores; reforzarlo en el servidor queda por decidir | Implementada (fase 5), revisable |
+| 44 | Solo se vinculan empresas: el servidor rechaza contrapartes que no sean persona jurídica con NIT. La base conserva los tipos de persona natural (no se migra), así que reabrirlo es un cambio de una regla | Pedido de Wilmer (2026-10-23): el comprador solo atiende clientes corporativos (B2B) | Implementada |
 
 ## Supuestos abiertos
 

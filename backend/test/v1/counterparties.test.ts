@@ -68,6 +68,17 @@ describe('clientes y contrapartes', () => {
     );
   });
 
+  it('solo vincula empresas: rechaza personas naturales y documentos distintos de NIT', async () => {
+    for (const [personType, documentType] of [['NATURAL', 'CC'], ['JURIDICA', 'CC'], ['NATURAL', 'NIT']] as const) {
+      await expectCode(
+        as(env, 'trader', (ctx) =>
+          createCounterparty(ctx, { kind: 'CLIENTE', personType, documentType, documentNumber: '1000999009', legalName: 'Persona (ficticio)' }),
+        ),
+        'INVALID',
+      );
+    }
+  });
+
   it('corregir datos crea una versión nueva sin borrar la anterior', async () => {
     const cp = await as(env, 'trader', (ctx) =>
       updateCounterparty(ctx, id, { legalName: 'Cliente de prueba S.A.S. (ficticio)', reason: 'Razón social mal escrita' }),
@@ -99,10 +110,10 @@ describe('lista blanca de destinos', () => {
     const cp = await as(env, 'trader', (ctx) =>
       createCounterparty(ctx, {
         kind: 'CLIENTE',
-        personType: 'NATURAL',
-        documentType: 'CC',
-        documentNumber: '1000999002',
-        legalName: 'Persona de prueba (ficticio)',
+        personType: 'JURIDICA',
+        documentType: 'NIT',
+        documentNumber: '900999002',
+        legalName: 'Empresa de prueba SAS (ficticio)',
       }),
     );
     cpId = cp.id;

@@ -52,7 +52,7 @@ describe('de la solicitud a la orden', () => {
     const doc = async (d: string) => (await env.db.query('SELECT id FROM otc.counterparties WHERE document_number = $1', [d])).rows[0].id;
     andina = await doc('900000001');
     caribe = await doc('900000002');
-    pending = await doc('1000000003');
+    pending = await doc('900000003');
   });
   afterAll(async () => env.close());
 

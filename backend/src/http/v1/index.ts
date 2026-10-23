@@ -7,6 +7,7 @@ import { counterpartyRoutes } from '../../modules/counterparties/routes.js';
 import { identityRoutes } from '../../modules/identity/routes.js';
 import { limitRoutes } from '../../modules/limits/routes.js';
 import { liquidityRoutes } from '../../modules/liquidity/routes.js';
+import { metricsRoutes } from '../../modules/metrics/routes.js';
 import { orderRoutes } from '../../modules/orders/routes.js';
 import { pricingRoutes } from '../../modules/pricing/routes.js';
 import { reconciliationRoutes } from '../../modules/reconciliation/routes.js';
@@ -39,6 +40,12 @@ export async function apiV1(app: FastifyInstance, deps: V1Deps) {
     reply.header('cache-control', 'no-store');
   });
 
+  // Público: el navegador necesita saber, antes de iniciar sesión, si está en un entorno simulado.
+  app.get('/system', async () => ({
+    mode: deps.mode,
+    sandbox: { chain: deps.integrations.chain.sandbox, bank: deps.integrations.bank.sandbox },
+  }));
+
   const kit = makeKit(app, deps);
   identityRoutes(app, kit, deps);
   counterpartyRoutes(kit);
@@ -52,4 +59,5 @@ export async function apiV1(app: FastifyInstance, deps: V1Deps) {
   confirmationRoutes(kit, deps);
   reconciliationRoutes(kit, deps);
   auditRoutes(kit, deps);
+  metricsRoutes(kit);
 }

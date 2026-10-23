@@ -19,7 +19,12 @@ export function transferRoutes(kit: Kit) {
   kit.get(
     '/transfers',
     'read.operations',
-    z.strictObject({ status: STATUS.optional(), purpose: z.enum(['COBRO', 'ENTREGA', 'DEVOLUCION', 'TRASLADO']).optional() }),
+    z.strictObject({
+      status: STATUS.optional(),
+      purpose: z.enum(['COBRO', 'ENTREGA', 'DEVOLUCION', 'TRASLADO']).optional(),
+      rail: z.enum(['BANK', 'TRON', 'BSC']).optional(),
+      search: z.string().trim().min(1).max(80).optional(),
+    }),
     (ctx, q) => listTransfers(ctx, q),
   );
   kit.get('/transfers/:id', 'read.operations', null, (ctx, _q, req) => getTransfer(ctx, uuid.parse(req.params).id));

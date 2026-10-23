@@ -46,10 +46,34 @@ Para apagarla: `Ctrl + C`, y `docker compose down`. Para borrar los datos y empe
 6. Entra como `admin`: cambia márgenes o la política de aprobación, y en **Auditoría** pulsa
    «Verificar integridad».
 
+## Consola de operación (`/consola/`)
+
+Interfaz nueva de la fase 5, sobre `/api/v1`: <http://localhost:8080/consola/>. La demo anterior sigue en
+<http://localhost:8080> sin cambios (el menú de la consola tiene el enlace «Abrir demo anterior»).
+
+- **Ingreso**: usuario y contraseña de la tabla de arriba, y luego el **segundo factor**. La primera vez la
+  consola muestra un código QR y la clave manual: regístralos en una aplicación de autenticación (Google
+  Authenticator, Microsoft Authenticator, 1Password…) y escribe el código de 6 dígitos. Cada código sirve una
+  sola vez; las aprobaciones y los cambios de configuración lo piden de nuevo.
+- **Módulos**: Inicio y métricas, Solicitudes OTC, Cotizaciones, Órdenes y ejecución, Liquidez, Transferencias
+  (USDT en Tron TRC20, USDT en BSC BEP20 y pesos por banco), Conciliaciones, Historial y auditoría, Clientes
+  (KYC y destinos de pago) y Usuarios y configuración (usuarios, parámetros, TRM, reglas de precio, límites).
+- En modo DEMO una franja fija dice **«DATOS SIMULADOS»**, y los paneles «Simulador» (solo para tesorería o
+  administración) reemplazan lo que reportarían el banco o la red.
+- La consola no calcula precios, saldos ni permisos: los pide al servidor. Ocultar un botón es solo
+  comodidad; el servidor vuelve a verificar cada permiso.
+
+Guion corto: entra como `trader`, carga la TRM en Inicio, crea una solicitud en **Solicitudes OTC**, cotiza y
+acepta; en la orden registra el pago, simula la confirmación del banco, aprueba con tu código, prepara la
+firma, pega un hash y simula la confirmación de la red: la orden queda **Completada**. Luego entra como
+`cumplimiento` para aprobar el KYC de un cliente nuevo, o como `admin` para verificar la integridad de la
+auditoría.
+
 ## Backend v1 (`/api/v1`)
 
 El backend definitivo (fase 4) corre junto a la demo anterior, sin reemplazarla todavía: vive en el esquema
-`otc` de PostgreSQL y bajo `/api/v1`. La consola web aún usa `/api`; se migra en la fase de frontend.
+`otc` de PostgreSQL y bajo `/api/v1`. La consola nueva (`/consola/`) usa `/api/v1`; la demo anterior (`/`) sigue
+usando `/api` hasta que se apruebe retirarla.
 
 - **Sesión** por cookie HttpOnly, segundo factor obligatorio (TOTP) y token anti-CSRF. Aprobaciones y
   cambios de configuración piden otra vez el código (cabecera `X-MFA-Code`).

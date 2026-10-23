@@ -6,6 +6,7 @@ import {
   decideKyc,
   getCounterparty,
   listCounterparties,
+  listDestinations,
   proposeDestination,
   revokeDestination,
   updateCounterparty,
@@ -84,6 +85,13 @@ export function counterpartyRoutes(kit: Kit) {
       }),
     },
     (ctx, body, req) => proposeDestination(ctx, uuid.parse(req.params).id, body),
+  );
+
+  kit.get(
+    '/destinations',
+    'read.operations',
+    z.strictObject({ status: z.enum(['PROPUESTO', 'APROBADO', 'RECHAZADO', 'REVOCADO']) }),
+    (ctx, q) => listDestinations(ctx, q.status),
   );
 
   kit.post(

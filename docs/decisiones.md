@@ -41,6 +41,14 @@ Fecha de inicio: 2026-10-20. El diseño completo está en el documento de Fase 1
 | 33 | Conciliación por cuenta y día de Bogotá: el extracto del banco o de la red (o uno cargado a mano para el exchange) se cruza por referencia, sentido y monto; lo que el libro confirmó y el extracto no muestra queda Sin contrapartida | Especificación, módulo 10 | Implementada (fase 4) |
 | 34 | Ajustes contra la cuenta ADJUSTMENTS del activo, propuestos por Tesorería y aprobados por Administración (otra persona, segundo factor); el asiento original no se toca | Historias H10.2 y H11.2 | Implementada (fase 4) |
 | 35 | Una partida en revisión se puede aclarar sin ajuste solo por Administración, con motivo y segundo factor | Diferencias de fecha que no son dinero | Implementada (fase 4), revisable |
+| 36 | Consola nueva en `/consola/` (entrada propia de Vite, React + TypeScript) sobre `/api/v1`; la demo anterior en `/` no se toca | Implementar por módulos sin reemplazar todo de una vez | Implementada (fase 5) |
+| 37 | La consola guarda la sesión solo en la cookie HttpOnly y el token anti-CSRF en memoria (se vuelve a pedir al recargar); nada en `localStorage` | Ningún secreto en el navegador | Implementada (fase 5) |
+| 38 | Un código de segundo factor rechazado en una confirmación no cierra la sesión; solo la cierra una sesión vencida o inválida | Un error de digitación no debe sacar al operador | Implementada (fase 5) |
+| 39 | Cada ventana de confirmación conserva una clave de idempotencia mientras está abierta: un doble clic o un reintento no repiten la operación | Escrituras críticas idempotentes | Implementada (fase 5) |
+| 40 | El margen de la mesa en Inicio solo llega a quien gestiona precios o audita; el resto recibe `null` desde el servidor | La consola no filtra datos sensibles: el servidor no los envía | Implementada (fase 5) |
+| 41 | Lecturas nuevas para la consola: `GET /system` (modo, público), `/dashboard`, `/quotes`, `/destinations`, `/adjustments` y filtros de `/transfers` (red y búsqueda) | Bandejas y métricas sin calcular nada en el navegador | Implementada (fase 5) |
+| 42 | Los botones de aprobar se ocultan a quien propuso (ajustes, destinos, límites); el servidor rechaza igual la autoaprobación | Separación de funciones | Implementada (fase 5) |
+| 43 | La consola no ofrece cambiar roles ni desactivar el propio usuario; el servidor solo exige que quede un administrador activo | Evitar errores; reforzarlo en el servidor queda por decidir | Implementada (fase 5), revisable |
 
 ## Supuestos abiertos
 
@@ -52,7 +60,10 @@ Fecha de inicio: 2026-10-20. El diseño completo está en el documento de Fase 1
 
 ## Pendiente para versiones siguientes
 
-- Segundo factor de autenticación: implementado en `/api/v1` (fase 4); la demo anterior aún no lo usa.
+- Segundo factor de autenticación: implementado en `/api/v1` (fase 4) y en la consola nueva (fase 5); la demo anterior aún no lo usa.
+- Retirar la demo anterior (`/` y `/api`) cuando se apruebe; hoy convive con la consola nueva.
+- Las dependencias de desarrollo `vite` y `esbuild` tienen avisos de seguridad que afectan solo al servidor de desarrollo; actualizarlas a la siguiente versión mayor requiere probar la compilación.
+- Reforzar en el servidor que nadie cambie sus propios roles ni se desactive (decisión 43).
 - Adaptadores reales: TRM oficial, nodos o indexadores de Tron y BSC, Bancolombia.
 - Estado de salud de cada integración (degradada tras fallas repetidas, bloqueo de operaciones que dependen de ella).
 - Costos de red (gas en BSC, energía en Tron) en el libro contable.

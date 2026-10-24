@@ -94,7 +94,7 @@ export interface OriginAddress {
   counterparty_id: string;
   network: 'TRON' | 'BSC';
   address: string;
-  label: string | null;
+  label: string;
   status: 'PENDIENTE' | 'APROBADA' | 'RECHAZADA' | 'REVOCADA';
   proposed_by: string;
   proposed_at: string;

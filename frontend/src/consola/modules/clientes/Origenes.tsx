@@ -148,10 +148,10 @@ function ProposeOriginDialog({ c, networks, max, liveNetworks, onClose, onDone }
     <FormModal
       title={`Registrar billetera de origen · ${c.legal_name}`}
       submitLabel="Enviar a Cumplimiento"
-      canSubmit={!!f.address.trim() && !addressError && !overLimit}
+      canSubmit={!!f.address.trim() && !addressError && !overLimit && f.label.trim().length > 0}
       onClose={onClose}
       onSubmit={async (o) => {
-        await counterparties.proposeOrigin(c.id, { network: f.network, address: f.address.trim(), label: f.label.trim() || null }, o);
+        await counterparties.proposeOrigin(c.id, { network: f.network, address: f.address.trim(), label: f.label.trim() }, o);
         toast('Billetera registrada: espera la aprobación de Cumplimiento');
         onDone();
       }}
@@ -162,7 +162,7 @@ function ProposeOriginDialog({ c, networks, max, liveNetworks, onClose, onDone }
         <Field label="Red" required>
           {(id) => <Select id={id} value={f.network} onChange={(e) => set('network', e.target.value)} options={networks.map((value) => ({ value, label: NETWORK[value] ?? value }))} />}
         </Field>
-        <Field label="Etiqueta" hint="Ej.: Tesorería principal">
+        <Field label="Etiqueta" required hint="Ej.: Tesorería principal">
           {(id) => <Input id={id} value={f.label} onChange={(e) => set('label', e.target.value)} />}
         </Field>
       </div>

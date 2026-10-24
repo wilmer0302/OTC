@@ -72,6 +72,7 @@ Fecha de inicio: 2026-10-20. El diseño completo está en el documento de Fase 1
 - Retirar la demo anterior (`/` y `/api`) cuando se apruebe; hoy convive con la consola nueva.
 - Las dependencias de desarrollo `vite` y `esbuild` tienen avisos de seguridad que afectan solo al servidor de desarrollo; actualizarlas a la siguiente versión mayor requiere probar la compilación.
 - Reforzar en el servidor que nadie cambie sus propios roles ni se desactive (decisión 43).
+- Control de origen de depósitos: pendientes de producción I1 a I5, I8 e I9, con criterios de aceptación y pruebas, en [`pendientes-produccion.md`](pendientes-produccion.md). Ninguno se da por resuelto sin lectores reales de Tron y BSC.
 - Adaptadores reales: TRM oficial, nodos o indexadores de Tron y BSC, Bancolombia.
 - Estado de salud de cada integración (degradada tras fallas repetidas, bloqueo de operaciones que dependen de ella).
 - Costos de red (gas en BSC, energía en Tron) en el libro contable.

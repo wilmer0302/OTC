@@ -46,10 +46,12 @@ export async function requestOriginException(ctx: Ctx, transferId: string, reaso
   const rail = t.rail as Network;
   const target = await ctx.tx.query(
     `SELECT a.external_ref AS account_ref, o.counterparty_id FROM otc.transfers t
-     JOIN otc.accounts a ON a.id = t.account_id JOIN otc.orders o ON o.id = t.order_id WHERE t.id = $1`,
+     JOIN otc.accounts a ON a.id = t.account_id LEFT JOIN otc.orders o ON o.id = t.order_id WHERE t.id = $1`,
     [transferId],
   );
-  const { account_ref, counterparty_id } = target.rows[0];
+  const { account_ref, counterparty_id } = target.rows[0] ?? {};
+  // Sin orden no hay cliente contra el que comparar el origen: es un caso inválido, no un error interno.
+  if (!counterparty_id) throw invalid('La transferencia no pertenece a una orden de un cliente');
   const allowed = await authorizedOrigins(ctx.tx, counterparty_id, rail, transferId);
   const expected = {
     to: account_ref,
@@ -97,6 +99,13 @@ export async function decideOriginException(ctx: Ctx, id: string, approve: boole
   const e = r.rows[0];
   if (e.status !== 'SOLICITADA') throw new DomainError('INVALID_STATE', `La excepción ya está ${e.status}`);
   assertDifferentPerson(ctx.actor, e.requested_by, 'Autorizar una excepción de origen');
+  // Autorizar solo tiene efecto mientras el depósito sigue en revisión. Negarla siempre se puede, para cerrarla.
+  if (approve) {
+    const t = await lockTransfer(ctx.tx, e.transfer_id);
+    if (t.status !== 'EN_REVISION') {
+      throw new DomainError('INVALID_STATE', `La transferencia ${t.number} ya no está en revisión (${t.status}); la excepción no tendría efecto`);
+    }
+  }
   await ctx.tx.query(`UPDATE otc.origin_exceptions SET status = $2, decided_by = $3, decided_at = $4, decision_note = $5 WHERE id = $1`, [
     id,
     approve ? 'APROBADA' : 'RECHAZADA',

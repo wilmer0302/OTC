@@ -1,5 +1,5 @@
-// Configuración leída del entorno. El modo DEMO es el único disponible hoy:
-// no existen adaptadores reales de bancos ni de blockchain.
+// Configuración leída del entorno. El modo DEMO es el único disponible hoy: solo TRON tiene
+// lector real (opcional, integrations/factory.ts); el banco y BSC siguen simulados.
 
 export type AppMode = 'DEMO' | 'PRODUCTION';
 
@@ -34,7 +34,7 @@ export function loadConfig(): Config {
   }
   if (mode === 'PRODUCTION') {
     throw new Error(
-      'El modo PRODUCTION no está disponible: no hay adaptadores reales de bancos ni de blockchain configurados.',
+      'El modo PRODUCTION no está disponible: faltan adaptadores reales del banco y de BSC, y los pendientes de docs/pendientes-produccion.md.',
     );
   }
   const jwtSecret = required('JWT_SECRET');

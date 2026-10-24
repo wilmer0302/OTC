@@ -19,7 +19,7 @@ Todas las pruebas actuales corren contra la red SIMULADA (`otc.sandbox_chain_txs
 - Prueba determinista con un lector de prueba cuyo `getTransaction` revoque la billetera durante la consulta: el resultado debe ser EN_REVISION y sin asiento.
 - La misma prueba con un destino de entrega revocado.
 
-## I2. Monto y destino opcionales en `decide()`
+## I2. Monto y destino opcionales en `decide()` — resuelto en la red (decisión 51)
 
 **Problema.** `confirmations/domain.ts` solo compara el monto y el destino si el lector los informa. El contrato del token y el origen sí son obligatorios. Un lector real que omita el monto dejaría pasar un depósito por otro importe.
 
@@ -58,7 +58,7 @@ Todas las pruebas actuales corren contra la red SIMULADA (`otc.sandbox_chain_txs
 - Arrancar en PRODUCTION con integraciones de prueba no inserta ninguna fila de demo.
 - Arrancar sobre una base con filas de demo se niega.
 
-## I5. Contratos USDT de producción
+## I5. Contratos USDT de producción — TRON: lector real implementado, sin validar contra la red real
 
 **Problema.** Solo existen los contratos de la red simulada, que son ficticios a propósito (`integrations/sandbox.ts`, `SANDBOX_USDT_CONTRACT`). El servidor y el trabajador usan siempre las integraciones sandbox.
 

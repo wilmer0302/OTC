@@ -19,3 +19,6 @@ export function useSession(): Session {
 
 export const useCan = () => useSession().can;
 export const isDemo = (s: SystemInfo | null) => s?.mode === 'DEMO';
+/** La red (o el banco) es simulada en este entorno: solo entonces tiene sentido el simulador. */
+export const isSimulated = (s: SystemInfo | null, rail: string) =>
+  isDemo(s) && (rail === 'BANK' ? s!.sandbox.bank : (s!.sandbox.networks?.[rail as 'TRON' | 'BSC'] ?? s!.sandbox.chain));

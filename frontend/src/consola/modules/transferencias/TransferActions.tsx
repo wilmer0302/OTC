@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { sandbox, transfers } from '../../api/endpoints';
 import type { Instruction, TransferRow } from '../../api/types';
 import { DemoTag } from '../../app/DemoTag';
-import { isDemo, useCan, useSession } from '../../app/session';
+import { isSimulated, useCan, useSession } from '../../app/session';
 import { amountOf } from '../../lib/format';
 import { notifyChange } from '../../lib/hooks';
 import { NETWORK, PURPOSE } from '../../lib/labels';
@@ -222,7 +222,7 @@ export function TransferActions({ t, onChange }: { t: T; onChange: () => void })
   }
 
   // Simulación: solo en modo DEMO y con el permiso de simular. Escribe lo que "diría" la red o el banco.
-  const canSimulate = isDemo(system) && can('sandbox.simulate') && t.external_ref && ['ENVIADA', 'PENDIENTE', 'EN_REVISION'].includes(t.status);
+  const canSimulate = isSimulated(system, t.rail) && can('sandbox.simulate') && t.external_ref && ['ENVIADA', 'PENDIENTE', 'EN_REVISION'].includes(t.status);
   if (canSimulate) {
     const bank = t.rail === 'BANK';
     panels.push(

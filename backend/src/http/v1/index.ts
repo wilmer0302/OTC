@@ -15,6 +15,7 @@ import { tradingRoutes } from '../../modules/trading/routes.js';
 import { transferRoutes } from '../../modules/transfers/routes.js';
 import { withdrawOnPriceMove } from '../../modules/trading/service.js';
 import { makeKit, type V1Deps } from './kit.js';
+import { railIsSandbox } from '../../integrations/ports.js';
 
 /**
  * API v1 bajo /api/v1: sesión por cookie HttpOnly con segundo factor, token anti-CSRF,
@@ -43,7 +44,11 @@ export async function apiV1(app: FastifyInstance, deps: V1Deps) {
   // Público: el navegador necesita saber, antes de iniciar sesión, si está en un entorno simulado.
   app.get('/system', async () => ({
     mode: deps.mode,
-    sandbox: { chain: deps.integrations.chain.sandbox, bank: deps.integrations.bank.sandbox },
+    sandbox: {
+      chain: deps.integrations.chain.sandbox,
+      bank: deps.integrations.bank.sandbox,
+      networks: { TRON: railIsSandbox(deps.integrations, 'TRON'), BSC: railIsSandbox(deps.integrations, 'BSC') },
+    },
   }));
 
   const kit = makeKit(app, deps);

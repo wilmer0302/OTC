@@ -1,5 +1,5 @@
 import { DomainError, invalid, notFound } from '../../domain/errors.js';
-import { isSandbox } from '../../integrations/ports.js';
+import { isSandbox, railIsSandbox } from '../../integrations/ports.js';
 import { actorDbId, type Ctx } from '../../platform/context.js';
 import { recordAction } from '../../platform/events.js';
 import { D, usdtToBaseUnits } from '../../platform/money.js';
@@ -46,6 +46,10 @@ export async function simulateFor(ctx: Ctx, transferId: string, input: SimulateI
   if (!r.rowCount) throw notFound('La transferencia');
   const t = r.rows[0];
   if (!t.external_ref) throw invalid('La transferencia todavía no tiene hash o referencia registrada');
+  // Una red conectada a un lector real no se simula: lo que se escriba aquí nunca lo leería nadie.
+  if (!railIsSandbox(ctx.integrations, t.rail)) {
+    throw new DomainError('NOT_SANDBOX', `La red ${t.rail} está conectada a un lector real; no se puede simular`, 409);
+  }
   const now = ctx.now();
   if (t.rail === 'BANK') {
     if (!['PENDING', 'SETTLED', 'REJECTED'].includes(input.status)) throw invalid('El banco responde PENDING, SETTLED o REJECTED');
@@ -100,6 +104,9 @@ export async function simulateMovement(
       [account.external_ref, input.reference, input.direction, new D(input.amount).toFixed(0), now, actorDbId(ctx.actor)],
     );
   } else if (account.liquidity_type === 'WALLET') {
+    if (!railIsSandbox(ctx.integrations, account.network)) {
+      throw new DomainError('NOT_SANDBOX', `La red ${account.network} está conectada a un lector real; no se puede simular`, 409);
+    }
     const other = input.counterpartyRef ?? 'SANDBOX-CONTRAPARTE';
     await ctx.tx.query(
       `INSERT INTO otc.sandbox_chain_txs (network, tx_hash, status, confirmations, from_address, to_address, amount_base_units, occurred_at, created_by, token_contract)

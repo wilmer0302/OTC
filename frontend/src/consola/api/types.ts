@@ -23,7 +23,8 @@ export interface Me {
 
 export interface SystemInfo {
   mode: 'DEMO' | 'PRODUCTION';
-  sandbox: { chain: boolean; bank: boolean };
+  /** networks: qué red es simulada; una red con lector real no ofrece el simulador. */
+  sandbox: { chain: boolean; bank: boolean; networks?: { TRON: boolean; BSC: boolean } };
 }
 
 export interface HistoryEntry {

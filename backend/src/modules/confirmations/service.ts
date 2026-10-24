@@ -1,6 +1,6 @@
 import type { Db } from '../../db/pool.js';
 import { DomainError, invalid } from '../../domain/errors.js';
-import { isSandbox, type Integrations } from '../../integrations/ports.js';
+import { railIsSandbox, type Integrations } from '../../integrations/ports.js';
 import { openCase, resolveCasesFor } from '../../platform/cases.js';
 import type { Actor, Ctx } from '../../platform/context.js';
 import { getDeskSettings } from '../../platform/deskSettings.js';
@@ -63,7 +63,7 @@ async function observe(integrations: Integrations, target: Target, now: () => Da
     integration: t.rail === 'BANK' ? ('BANK' as const) : ('CHAIN' as const),
     operation: t.rail === 'BANK' ? 'getMovement' : 'getTransaction',
     target: t.rail === 'BANK' ? `${target.accountRef}:${t.external_ref}` : `${t.rail}:${t.external_ref}`,
-    sandbox: isSandbox(integrations),
+    sandbox: railIsSandbox(integrations, t.rail),
     calledAt: now(),
     ok: true,
     error: null as string | null,
@@ -85,8 +85,13 @@ async function observe(integrations: Integrations, target: Target, now: () => Da
         from: x.from,
         tokenContract: x.tokenContract,
         amount: x.amountBaseUnits,
+        blockNumber: x.blockNumber,
+        finalized: x.finalized,
+        anomaly: x.anomaly,
         detail: x.detail,
       };
+      // Sin campos vacíos en la evidencia: la comparación de observaciones repetidas queda estable.
+      for (const k of Object.keys(obs) as (keyof Observed)[]) if (obs[k] === undefined) delete obs[k];
     }
   } catch (e) {
     call.ok = false;
@@ -111,7 +116,7 @@ async function saveObservation(ctx: Ctx, t: TransferRow, obs: Observed, outcome:
   }
   await ctx.tx.query(
     `INSERT INTO otc.observations (transfer_id, source, sandbox, payload, outcome, note, observed_at) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-    [t.id, t.rail === 'BANK' ? 'BANK' : 'CHAIN', isSandbox(ctx.integrations), obs, outcome, note, ctx.now()],
+    [t.id, t.rail === 'BANK' ? 'BANK' : 'CHAIN', railIsSandbox(ctx.integrations, t.rail), obs, outcome, note, ctx.now()],
   );
 }
 
@@ -229,7 +234,15 @@ export async function checkTransfer(deps: TrackDeps, transferId: string) {
     const t = await lockTransfer(tx, transferId);
     await tx.query('UPDATE otc.transfers SET last_checked_at = $2 WHERE id = $1 AND status = ANY($3::text[])', [t.id, ctx.now(), TRACKED]);
     if (!obs) {
-      // La integración no respondió: nada cambia; el plazo sigue corriendo y lo revisa el próximo ciclo.
+      // La integración no respondió: nada se acredita ni cambia de estado; el próximo ciclo reintenta.
+      // Pasado el primer plazo queda un caso abierto para que alguien lo mire.
+      if (t.status === 'ENVIADA' || t.status === 'PENDIENTE') {
+        const settings = await getDeskSettings(ctx);
+        const age = (ctx.now().getTime() - new Date(t.sent_at ?? t.created_at).getTime()) / 1000;
+        if (age >= settings.transfer_pending_seconds) {
+          await openCase(ctx, 'transfer', t.id, 'SIN_CONFIRMAR', `No se pudo consultar ${t.rail === 'BANK' ? 'el banco' : 'la red'}: ${call.error ?? 'sin respuesta'}`);
+        }
+      }
       return { status: t.status, applied: false };
     }
     if (t.status !== target.transfer.status || !TRACKED.includes(t.status)) {

@@ -30,7 +30,8 @@ describe('arquitectura', () => {
   it('ningún módulo de negocio usa una integración concreta: solo las interfaces', () => {
     for (const f of modules) {
       for (const imp of importsOf(f)) {
-        expect(imp.includes('integrations/sandbox') || imp.includes('adapters/'), `${relative(SRC, f)} importa ${imp}`).toBe(false);
+        const concrete = ['integrations/sandbox', 'integrations/tron/', 'integrations/router', 'integrations/factory', 'adapters/'].some((x) => imp.includes(x));
+        expect(concrete, `${relative(SRC, f)} importa ${imp}`).toBe(false);
       }
     }
   });

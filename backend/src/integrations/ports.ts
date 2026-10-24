@@ -1,6 +1,7 @@
 // Contratos con el exterior (backend v1). La lógica OTC solo conoce estas interfaces:
 // nunca importa un proveedor concreto. Cada interfaz tiene una implementación sandbox
-// (desarrollo, pruebas, demo) y, más adelante, una real que solo carga producción.
+// (desarrollo, pruebas, demo) y, cuando existe, una real que se elige por configuración
+// (integrations/factory.ts). Hoy solo TRON tiene lector real.
 
 export type Network = 'TRON' | 'BSC';
 
@@ -18,6 +19,13 @@ export interface ChainTxObservation {
   /** Monto en unidades base del token (6 decimales en Tron, 18 en BSC). */
   amountBaseUnits?: string;
   blockNumber?: string;
+  /**
+   * La red da la transacción por irreversible (en TRON: bloque solidificado). Si el lector lo informa,
+   * reemplaza al conteo de confirmaciones; si no lo informa (sandbox), rige el conteo.
+   */
+  finalized?: boolean;
+  /** Algo no cuadra en lo que respondió la red (evento ambiguo, datos incompletos): va a revisión. */
+  anomaly?: string;
   detail?: string;
 }
 
@@ -31,7 +39,10 @@ export interface ChainStatementLine {
 
 /** Solo lectura de la red: la plataforma nunca firma ni ve claves. */
 export interface ChainReader {
+  /** true si alguna red de este lector es simulada. */
   readonly sandbox: boolean;
+  /** Si el lector combina redes, dice cuál es simulada. Sin él, rige `sandbox`. */
+  sandboxFor?(network: Network): boolean;
   isValidAddress(network: Network, address: string): boolean;
   /** Contrato USDT autorizado en esa red para este entorno. */
   usdtContract(network: Network): string;
@@ -68,3 +79,6 @@ export interface Integrations {
 }
 
 export const isSandbox = (i: Integrations) => i.chain.sandbox || i.bank.sandbox;
+/** La red concreta es simulada (o el banco, si `rail` es BANK). */
+export const railIsSandbox = (i: Integrations, rail: Network | 'BANK') =>
+  rail === 'BANK' ? i.bank.sandbox : (i.chain.sandboxFor?.(rail) ?? i.chain.sandbox);

@@ -29,6 +29,12 @@ export interface Observed {
   tokenContract?: string;
   direction?: 'IN' | 'OUT';
   amount?: string;
+  /** Bloque de inclusión, como evidencia. */
+  blockNumber?: string;
+  /** La red la da por irreversible; si viene, reemplaza al conteo de confirmaciones. */
+  finalized?: boolean;
+  /** El lector vio algo que no cuadra (evento ambiguo, datos incompletos). */
+  anomaly?: string;
   detail?: string;
 }
 
@@ -63,12 +69,18 @@ export function decide(obs: Observed, exp: Expected, t: Timing): Decision {
   if (obs.status === 'FAILED' || obs.status === 'REJECTED') {
     return { kind: 'FAIL', reason: obs.detail ?? (obs.status === 'FAILED' ? 'La red la reporta fallida' : 'El banco la rechazó') };
   }
+  if (obs.anomaly) return { kind: 'REVIEW', reason: obs.anomaly };
   // Lo que se vio debe coincidir con lo autorizado, aunque la red la reporte exitosa.
   if (exp.tokenContract) {
     if (!obs.tokenContract) return { kind: 'REVIEW', reason: 'La red no informó el contrato del token; no se puede verificar' };
     if (!sameOnNetwork(exp.network, obs.tokenContract, exp.tokenContract)) {
       return { kind: 'REVIEW', reason: `El token no es el autorizado: contrato ${obs.tokenContract}` };
     }
+  }
+  // En la red, el monto y el destino son obligatorios: sin ellos no se puede verificar nada.
+  if (exp.network) {
+    if (obs.amount === undefined) return { kind: 'REVIEW', reason: 'La red no informó el monto; no se puede verificar' };
+    if (obs.to === undefined) return { kind: 'REVIEW', reason: 'La red no informó el destino; no se puede verificar' };
   }
   if (obs.amount !== undefined && obs.amount !== exp.amount) {
     return { kind: 'REVIEW', reason: `El monto no coincide: se esperaba ${exp.amount} y se vio ${obs.amount}` };
@@ -88,8 +100,18 @@ export function decide(obs: Observed, exp: Expected, t: Timing): Decision {
     }
   }
   const confirmations = obs.confirmations ?? 0;
-  const done = obs.status === 'SETTLED' || (obs.status === 'SUCCESS' && confirmations >= t.requiredConfirmations);
+  // Si el lector informa la irreversibilidad (TRON: bloque solidificado), es lo que manda; si no, el conteo.
+  const deep = obs.finalized !== undefined ? obs.finalized : confirmations >= t.requiredConfirmations;
+  const done = obs.status === 'SETTLED' || (obs.status === 'SUCCESS' && deep);
   if (done) return { kind: 'CONFIRM', confirmations };
-  if (late) return { kind: 'REVIEW', reason: `Sin el umbral de confirmaciones después de ${t.reviewSeconds} segundos (${confirmations} de ${t.requiredConfirmations})` };
+  if (late) {
+    return {
+      kind: 'REVIEW',
+      reason:
+        obs.finalized !== undefined
+          ? `La red no la da por irreversible después de ${t.reviewSeconds} segundos`
+          : `Sin el umbral de confirmaciones después de ${t.reviewSeconds} segundos (${confirmations} de ${t.requiredConfirmations})`,
+    };
+  }
   return { kind: 'PENDING', confirmations };
 }

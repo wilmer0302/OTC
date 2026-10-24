@@ -107,6 +107,20 @@ frontend/   Consola web (React + Vite). Solo presenta y llama a la API.
 docs/       Decisiones técnicas y supuestos
 ```
 
+## Lector real de TRON (opcional, solo lectura)
+
+Por omisión todas las redes son simuladas. Con estas variables, la API y el trabajador leen los depósitos USDT TRC-20 de la red TRON real. BSC y el banco siguen simulados, y la plataforma nunca firma ni envía fondos.
+
+| Variable | Obligatoria | Uso |
+| --- | --- | --- |
+| `TRON_READER` | sí | `trongrid` activa el lector real; `sandbox` (por omisión) usa el simulador |
+| `TRON_RPC_URL` | sí | URL del proveedor: `https://api.trongrid.io` (red principal) o `https://nile.trongrid.io` (pruebas). Debe usar https; solo un nodo local puede usar http |
+| `TRON_USDT_CONTRACT` | sí | Contrato USDT autorizado. En la red principal es el publicado por Tether en https://tether.to/en/supported-protocols/ (`TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t` al 2026-10-24); verifícalo antes de usarlo. En una red de pruebas va el contrato de prueba de esa red. Se rechaza el contrato ficticio del simulador |
+| `TRON_API_KEY` | no | Llave de TronGrid, enviada en la cabecera `TRON-PRO-API-KEY`. Va al gestor de secretos, nunca al repositorio |
+| `TRON_RPC_TIMEOUT_MS` | no | Tiempo máximo por consulta, de 1000 a 60000 (por omisión 8000) |
+
+Un depósito se acredita solo si el recibo está en un bloque solidificado (irreversible), el evento `Transfer` es del contrato configurado, el monto y el destino coinciden y el origen es una billetera aprobada del cliente. Si algo falta o no cuadra, va a revisión. Si el nodo no responde, se reintenta en cada ciclo y, pasado el primer plazo, se abre un caso. Con el lector real, el simulador no escribe sobre TRON. La dirección TRON de la mesa (cuenta `WALLET_TRON_DEMO` de la demo) debe ser la billetera real que recibe.
+
 ## Desarrollo sin Docker
 
 Necesitas Node.js 22 y PostgreSQL 16.
@@ -121,6 +135,7 @@ export COOKIE_SECURE=false                          # solo en http://localhost
 npm run dev            # http://localhost:3000
 npx tsx src/worker.ts  # trabajador, en otra terminal
 npm test               # usa TEST_DATABASE_URL (por defecto .../otc_test); BORRA esa base
+npx vitest run test/v1/tron.test.ts   # solo el lector de TRON (nodo falso, sin conexión a la red)
 
 # frontend
 cd frontend && npm install && npm run dev   # http://localhost:5173

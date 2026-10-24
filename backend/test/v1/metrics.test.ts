@@ -15,7 +15,7 @@ describe('métricas y bandejas de la consola', () => {
 
   it('el modo del sistema es público para mostrar la etiqueta de datos simulados antes de entrar', async () => {
     const r = await call(env, null, 'GET', '/system');
-    expect(r.body).toEqual({ mode: 'DEMO', sandbox: { chain: true, bank: true } });
+    expect(r.body).toEqual({ mode: 'DEMO', sandbox: { chain: true, bank: true, networks: { TRON: true, BSC: true } } });
   });
 
   it('sin TRM el inicio lo dice; los saldos salen del libro y las colas cuentan lo pendiente', async () => {

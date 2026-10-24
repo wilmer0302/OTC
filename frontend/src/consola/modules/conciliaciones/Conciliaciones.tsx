@@ -3,7 +3,7 @@ import { liquidity, reconciliation, sandbox } from '../../api/endpoints';
 import type { Adjustment, LiquidityAccount, ReconItem, ReconRun, ReconRunRow } from '../../api/types';
 import { DemoTag } from '../../app/DemoTag';
 import { href, navigate, replaceQuery } from '../../app/router';
-import { isDemo, useCan, useSession } from '../../app/session';
+import { isSimulated, useCan, useSession } from '../../app/session';
 import { amountOf, dateOnly, dateTime, todayBogota } from '../../lib/format';
 import { notifyChange, useQuery } from '../../lib/hooks';
 import { PROPOSAL_STATUS, RECON_ITEM_STATUS, RECON_RUN_STATUS } from '../../lib/labels';
@@ -293,7 +293,7 @@ function RunDrawer({ id, accounts, onClose, onChange }: { id: string; accounts: 
           </Button>
         </div>
       )}
-      {isDemo(system) && can('sandbox.simulate') && run.status !== 'CERRADO' && account && (
+      {can('sandbox.simulate') && run.status !== 'CERRADO' && account && isSimulated(system, account.liquidity_type === 'WALLET' && account.network ? account.network : 'BANK') && (
         <div className="action-panel sim-panel">
           <h4>
             Simular un movimiento en el extracto <DemoTag />

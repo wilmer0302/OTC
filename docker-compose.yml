@@ -27,6 +27,11 @@ services:
       MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY:-00000000000000000000000000000000000000000000000000000000000000de}
       # La demo corre en http://localhost; en cualquier otro entorno la cookie exige HTTPS.
       COOKIE_SECURE: "false"
+      # Lector de TRON: sandbox (por omisión) o trongrid (lector real, solo lectura). Ver README.
+      TRON_READER: ${TRON_READER:-sandbox}
+      TRON_RPC_URL: ${TRON_RPC_URL:-}
+      TRON_API_KEY: ${TRON_API_KEY:-}
+      TRON_USDT_CONTRACT: ${TRON_USDT_CONTRACT:-}
     depends_on:
       db:
         condition: service_healthy

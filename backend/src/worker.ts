@@ -1,13 +1,13 @@
 import { loadConfig } from './config.js';
 import { createPool } from './db/pool.js';
-import { sandboxIntegrations } from './integrations/sandbox.js';
+import { buildIntegrations } from './integrations/factory.js';
 import { runSweeps } from './jobs/sweeps.js';
 
 // Proceso trabajador: vencimientos y seguimiento, separado de la API.
-// Modo DEMO: integraciones sandbox. No existen todavía integraciones reales.
+// Mismas integraciones que la API: sandbox por omisión, lector real de TRON si TRON_READER=trongrid.
 const config = loadConfig();
 const db = createPool(config.databaseUrl);
-const integrations = sandboxIntegrations(db);
+const integrations = buildIntegrations(db);
 const intervalMs = Number(process.env.WORKER_INTERVAL_MS ?? 5000);
 
 let running = true;

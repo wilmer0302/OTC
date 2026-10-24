@@ -10,7 +10,8 @@
     "migrate": "tsx src/db/migrate.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "test:tron-real": "vitest run --config vitest.real.config.ts"
+    "test:tron-real": "vitest run --config vitest.real.config.ts test-real/tron.real.test.ts",
+    "test:tron-e2e": "vitest run --config vitest.real.config.ts test-real/tron-e2e.real.test.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^9.4.0",

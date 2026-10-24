@@ -1,6 +1,6 @@
 import type { Db, Tx } from '../../db/pool.js';
 import { DomainError, invalid, notFound } from '../../domain/errors.js';
-import { isSandbox, type Integrations } from '../../integrations/ports.js';
+import { railIsSandbox, type Integrations } from '../../integrations/ports.js';
 import { openCase, resolveCasesFor } from '../../platform/cases.js';
 import { actorDbId, type Actor, type Ctx } from '../../platform/context.js';
 import { recordTransition } from '../../platform/events.js';
@@ -126,13 +126,15 @@ async function refreshRunStatus(ctx: Ctx, runId: string) {
  */
 async function matchLines(ctx: Ctx, run: RunRow, account: AccountRow, source: 'BANK' | 'CHAIN' | 'MANUAL', lines: StatementLine[]) {
   const now = ctx.now();
+  // Marca de sandbox por la integración que dio el extracto: con TRON real y BSC simulada, el de TRON no es sandbox.
+  const sandbox = source === 'MANUAL' ? false : railIsSandbox(ctx.integrations, source === 'BANK' ? 'BANK' : account.network!);
   for (const l of lines) {
     const amount = account.asset === 'COP' ? parseCopInteger(l.amount, 'Monto del extracto') : parseUsdtAmount(l.amount, 'Monto del extracto');
     const ins = await ctx.tx.query<{ id: string }>(
       `INSERT INTO otc.external_movements (run_id, account_id, source, sandbox, external_ref, direction, amount, occurred_at, raw, loaded_by, loaded_at)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
        ON CONFLICT (account_id, lower(external_ref), direction) DO NOTHING RETURNING id`,
-      [run.id, account.id, source, source !== 'MANUAL' && isSandbox(ctx.integrations), l.reference, l.direction, fmt(amount), l.occurredAt, l.raw, actorDbId(ctx.actor), now],
+      [run.id, account.id, source, sandbox, l.reference, l.direction, fmt(amount), l.occurredAt, l.raw, actorDbId(ctx.actor), now],
     );
     if (!ins.rowCount) continue;
     const item = await ctx.tx.query<ItemRow>(

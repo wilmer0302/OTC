@@ -67,11 +67,17 @@ export async function proposeOrigin(ctx: Ctx, counterpartyId: string, input: New
     throw new DomainError('NETWORK_LIMIT', `El cliente ya tiene ${max} redes habilitadas; no se puede agregar ${input.network}`);
   }
 
-  const r = await ctx.tx.query<{ id: string }>(
-    `INSERT INTO otc.origin_addresses (counterparty_id, network, address, label, proposed_by, proposed_at)
-     VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
-    [counterpartyId, input.network, address, input.label.trim(), ctx.actor.id, ctx.now()],
-  );
+  // Dos clientes distintos pueden registrar la misma dirección a la vez: el índice único decide.
+  const r = await ctx.tx
+    .query<{ id: string }>(
+      `INSERT INTO otc.origin_addresses (counterparty_id, network, address, label, proposed_by, proposed_at)
+       VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
+      [counterpartyId, input.network, address, input.label.trim(), ctx.actor.id, ctx.now()],
+    )
+    .catch((e) => {
+      if ((e as { code?: string }).code === '23505') throw new DomainError('DUPLICATE', `Esa dirección ya está registrada en ${input.network}`);
+      throw e;
+    });
   await recordAction(ctx, 'origin.propose', 'origin_address', r.rows[0].id, { counterpartyId, network: input.network, address });
   return getOrigin(ctx, r.rows[0].id);
 }

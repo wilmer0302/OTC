@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { addressKey, networkFits, type Network } from '../../src/modules/counterparties/domain.js';
+import { createCounterparty } from '../../src/modules/counterparties/service.js';
 import { decideOrigin, proposeOrigin, revokeOrigin } from '../../src/modules/counterparties/origins.js';
 import { decide } from '../../src/modules/confirmations/domain.js';
 import { authorizedOrigins, decideOriginException, requestOriginException } from '../../src/modules/confirmations/origins.js';
@@ -246,6 +247,125 @@ describe('billeteras de origen con base de datos', () => {
     await expectCode(as(env, 'trader', (ctx) => requestOriginException(ctx, d.transfer.id, 'Pide excepción para un token falso')), 'NOT_ORIGIN_ISSUE');
   });
 
+  it('separación de funciones: quien pide o propone no decide, aunque tenga el rol de Cumplimiento', async () => {
+    // Un usuario con los dos roles: el permiso no lo frena, solo la regla de persona distinta.
+    await env.db.query(
+      `INSERT INTO public.users (username, full_name, password_hash, roles)
+       SELECT 'mixto', 'Operador y Cumplimiento (prueba)', password_hash, ARRAY['OPERADOR','CUMPLIMIENTO'] FROM public.users WHERE username = 'trader'
+       ON CONFLICT (username) DO NOTHING`,
+    );
+    const o = await as(env, 'mixto', (ctx) => proposeOrigin(ctx, caribe, { network: 'TRON', address: tron('Mixto'), label: 'Mixto' }));
+    await expectCode(as(env, 'mixto', (ctx) => decideOrigin(ctx, o.id as string, true, 'me apruebo')), 'FORBIDDEN');
+
+    const d = await deposit(caribe, tron('MixtoDeposito'));
+    const e = await as(env, 'mixto', (ctx) => requestOriginException(ctx, d.transfer.id, 'El cliente pagó desde una billetera nueva'));
+    await expectCode(as(env, 'mixto', (ctx) => decideOriginException(ctx, e.id, true, 'me autorizo')), 'FORBIDDEN');
+    // La base también lo impide, aunque alguien salte la aplicación.
+    const mixto = await env.db.query(`SELECT id FROM public.users WHERE username = 'mixto'`);
+    await expect(
+      env.db.query(`UPDATE otc.origin_exceptions SET status = 'APROBADA', decided_by = $2, decided_at = now(), decision_note = 'directo' WHERE id = $1`, [
+        e.id,
+        mixto.rows[0].id,
+      ]),
+    ).rejects.toThrow();
+    await as(env, 'cumplimiento', (ctx) => decideOriginException(ctx, e.id, true, 'Verificada por otra persona'));
+  });
+
+  it('la excepción no cambia importe, destino, contrato ni confirmaciones exigidas', async () => {
+    // Importe, destino o contrato distintos: la revisión no es solo por el origen y no se puede pedir.
+    const amount = await deposit(caribe, tron('ExcepMonto'), { amount: '99' });
+    expect(amount.status).toBe('EN_REVISION');
+    await expectCode(as(env, 'trader', (ctx) => requestOriginException(ctx, amount.transfer.id, 'El cliente pagó desde otra billetera')), 'NOT_ORIGIN_ISSUE');
+    const dest = await deposit(caribe, tron('ExcepDestino'), { toAddress: tron('OtraMesa') });
+    expect(dest.status).toBe('EN_REVISION');
+    await expectCode(as(env, 'trader', (ctx) => requestOriginException(ctx, dest.transfer.id, 'El cliente pagó desde otra billetera')), 'NOT_ORIGIN_ISSUE');
+    const token = await deposit(caribe, tron('ExcepContrato'), { tokenContract: 'TContratoFalsoQueSeLlamaUSDT111111' });
+    await expectCode(as(env, 'trader', (ctx) => requestOriginException(ctx, token.transfer.id, 'El cliente pagó desde otra billetera')), 'NOT_ORIGIN_ISSUE');
+
+    // Confirmaciones: con la excepción autorizada, sigue sin confirmarse por debajo del umbral.
+    const few = await deposit(caribe, tron('ExcepConfirm'), { confirmations: 1 });
+    expect(few.status).toBe('EN_REVISION');
+    const e = await as(env, 'trader', (ctx) => requestOriginException(ctx, few.transfer.id, 'El cliente pagó desde la billetera de su filial'));
+    await as(env, 'cumplimiento', (ctx) => decideOriginException(ctx, e.id, true, 'Filial verificada'));
+    await expectCode(as(env, 'admin', (ctx) => resolveTransferReview(ctx, few.transfer.id, 'CONFIRMADA', 'Con excepción')), 'NO_EVIDENCE');
+
+    // Si después de autorizada la red informa otro importe u otro origen, tampoco se confirma.
+    const later = await deposit(caribe, tron('ExcepDespues'));
+    const e2 = await as(env, 'trader', (ctx) => requestOriginException(ctx, later.transfer.id, 'El cliente pagó desde la billetera de su filial'));
+    await as(env, 'cumplimiento', (ctx) => decideOriginException(ctx, e2.id, true, 'Filial verificada'));
+    await sim(later.transfer.id, { status: 'SUCCESS', confirmations: 100, fromAddress: tron('ExcepDespues'), amount: '99' });
+    await checkNow(env, later.transfer.id);
+    await expectCode(as(env, 'admin', (ctx) => resolveTransferReview(ctx, later.transfer.id, 'CONFIRMADA', 'Con excepción')), 'NO_EVIDENCE');
+    await sim(later.transfer.id, { status: 'SUCCESS', confirmations: 100, fromAddress: tron('OtroOrigen') });
+    await checkNow(env, later.transfer.id);
+    await expectCode(as(env, 'admin', (ctx) => resolveTransferReview(ctx, later.transfer.id, 'CONFIRMADA', 'Con excepción')), 'NO_EVIDENCE');
+    expect(await entriesOf(later.order.id)).toBe(0);
+  });
+
+  it('una excepción solo se autoriza mientras el depósito sigue en revisión; negarla siempre se puede', async () => {
+    const d = await deposit(caribe, tron('ExcepTarde'));
+    const e = await as(env, 'trader', (ctx) => requestOriginException(ctx, d.transfer.id, 'El cliente pagó desde la billetera de su filial'));
+    await as(env, 'admin', (ctx) => resolveTransferReview(ctx, d.transfer.id, 'PENDIENTE', 'Vuelve a seguimiento'));
+    expect(await statusOf('transfers', d.transfer.id)).not.toBe('EN_REVISION');
+    await expectCode(as(env, 'cumplimiento', (ctx) => decideOriginException(ctx, e.id, true, 'Tarde')), 'INVALID_STATE');
+    const closed = await as(env, 'cumplimiento', (ctx) => decideOriginException(ctx, e.id, false, 'Ya no aplica'));
+    expect(closed.status).toBe('RECHAZADA');
+  });
+
+  it('solicitudes simultáneas: el tope de redes y los duplicados se respetan', async () => {
+    const nuevo = async (nit: string) =>
+      (await as(env, 'trader', (ctx) => createCounterparty(ctx, { kind: 'CLIENTE', personType: 'JURIDICA', documentType: 'NIT', documentNumber: nit, legalName: `Prueba ${nit} SAS` }))).id as string;
+    const a = await nuevo('900999101');
+    const b = await nuevo('900999102');
+    const saved = POLICY.maxOriginNetworksPerClient;
+    POLICY.maxOriginNetworksPerClient = 1;
+    try {
+      // Dos redes distintas a la vez para el mismo cliente con tope 1: entra una sola.
+      const both = await Promise.allSettled([
+        as(env, 'trader', (ctx) => proposeOrigin(ctx, a, { network: 'TRON', address: tron('ConcurrenteA'), label: 'A' })),
+        as(env, 'trader', (ctx) => proposeOrigin(ctx, a, { network: 'BSC', address: '0x00000000000000000000000000000000000e0001', label: 'B' })),
+      ]);
+      expect(both.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+      const failed = both.find((r) => r.status === 'rejected') as PromiseRejectedResult;
+      expect(failed.reason.code).toBe('NETWORK_LIMIT');
+    } finally {
+      POLICY.maxOriginNetworksPerClient = saved;
+    }
+    // La misma dirección a la vez para dos clientes distintos: queda para uno, el otro recibe DUPLICATE.
+    const same = tron('ConcurrenteMisma');
+    const dup = await Promise.allSettled([
+      as(env, 'trader', (ctx) => proposeOrigin(ctx, a, { network: 'TRON', address: same, label: 'A' })),
+      as(env, 'trader', (ctx) => proposeOrigin(ctx, b, { network: 'TRON', address: same, label: 'B' })),
+    ]);
+    expect(dup.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+    expect((dup.find((r) => r.status === 'rejected') as PromiseRejectedResult).reason.code).toBe('DUPLICATE');
+    const live = await env.db.query(`SELECT count(*)::int AS n FROM otc.origin_addresses WHERE address = $1`, [same]);
+    expect(live.rows[0].n).toBe(1);
+  });
+
+  it('por HTTP: revocar y decidir una excepción piden el segundo factor', async () => {
+    const op = await httpLogin(env, 'trader');
+    const co = await httpLogin(env, 'cumplimiento');
+    const created = await call(env, op, 'POST', `/counterparties/${caribe}/origins`, { network: 'TRON', address: tron('HttpRevoca'), label: 'HTTP' }, { 'idempotency-key': newKey() });
+    await call(env, co, 'POST', `/origins/${created.body.id}/decision`, { approve: true, note: 'Verificada' }, { 'idempotency-key': newKey(), ...stepUp(env, 'cumplimiento') });
+    const revokeNoCode = await call(env, co, 'POST', `/origins/${created.body.id}/revoke`, { reason: 'Comprometida' }, { 'idempotency-key': newKey() });
+    expect(revokeNoCode.status).toBe(401);
+    expect(revokeNoCode.body.code).toBe('STEP_UP_REQUIRED');
+    const revoked = await call(env, co, 'POST', `/origins/${created.body.id}/revoke`, { reason: 'Comprometida' }, { 'idempotency-key': newKey(), ...stepUp(env, 'cumplimiento') });
+    expect(revoked.status).toBe(200);
+    expect(revoked.body.status).toBe('REVOCADA');
+
+    const d = await deposit(caribe, tron('HttpExcepcion'));
+    const req = await call(env, op, 'POST', `/transfers/${d.transfer.id}/origin-exception`, { reason: 'El cliente pagó desde su filial' }, { 'idempotency-key': newKey() });
+    expect(req.status).toBe(201);
+    const noCode = await call(env, co, 'POST', `/origin-exceptions/${req.body.id}/decision`, { approve: true, note: 'Verificada' }, { 'idempotency-key': newKey() });
+    expect(noCode.status).toBe(401);
+    expect(noCode.body.code).toBe('STEP_UP_REQUIRED');
+    const yes = await call(env, co, 'POST', `/origin-exceptions/${req.body.id}/decision`, { approve: true, note: 'Verificada' }, { 'idempotency-key': newKey(), ...stepUp(env, 'cumplimiento') });
+    expect(yes.status).toBe(200);
+    expect(yes.body.status).toBe('APROBADA');
+  });
+
   it('por HTTP: solo redes soportadas y decisiones con segundo factor', async () => {
     const op = await httpLogin(env, 'trader');
     const bad = await call(env, op, 'POST', `/counterparties/${andina}/origins`, { network: 'ETH', address: tron('Http'), label: 'x' }, { 'idempotency-key': newKey() });
@@ -254,7 +374,8 @@ describe('billeteras de origen con base de datos', () => {
     expect(created.status).toBe(201);
     const co = await httpLogin(env, 'cumplimiento');
     const noMfa = await call(env, co, 'POST', `/origins/${created.body.id}/decision`, { approve: true, note: 'sin código' }, { 'idempotency-key': newKey() });
-    expect(noMfa.status).toBeGreaterThanOrEqual(400);
+    expect(noMfa.status).toBe(401);
+    expect(noMfa.body.code).toBe('STEP_UP_REQUIRED');
     const yes = await call(env, co, 'POST', `/origins/${created.body.id}/decision`, { approve: true, note: 'Verificada' }, { 'idempotency-key': newKey(), ...stepUp(env, 'cumplimiento') });
     expect(yes.status).toBe(200);
     expect(yes.body.status).toBe('APROBADA');

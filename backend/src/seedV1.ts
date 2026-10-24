@@ -104,6 +104,33 @@ const counterparties: Step = async (tx) => {
   return true;
 };
 
+// Billeteras de origen ficticias, ya aprobadas, de los clientes con KYC aprobado: desde aquí
+// "depositan" USDT en la demo. Propone el trader y aprueba Cumplimiento. No pertenecen a nadie.
+export const DEMO_ORIGINS = [
+  { doc: '900000001', network: 'TRON', address: 'TDemo1AndinaRemitente1111111111111' },
+  { doc: '900000001', network: 'BSC', address: '0x00000000000000000000000000000000000b0001' },
+  { doc: '900000002', network: 'TRON', address: 'TDemo2CaribeRemitente1111111111111' },
+  { doc: '900000002', network: 'BSC', address: '0x00000000000000000000000000000000000b0002' },
+] as const;
+
+const origins: Step = async (tx) => {
+  const r = await tx.query('SELECT 1 FROM otc.origin_addresses LIMIT 1');
+  if (r.rowCount) return false;
+  const trader = await userId(tx, 'trader');
+  const compliance = await userId(tx, 'cumplimiento');
+  for (const o of DEMO_ORIGINS) {
+    const cp = await tx.query('SELECT id FROM otc.counterparties WHERE document_number = $1', [o.doc]);
+    if (!cp.rowCount) continue;
+    await tx.query(
+      `INSERT INTO otc.origin_addresses (counterparty_id, network, address, label, status, proposed_by, proposed_at,
+         decided_by, decided_at, decision_note)
+       VALUES ($1,$2,$3,$4,'APROBADA',$5, now(), $6, now(), 'Billetera ficticia de demo')`,
+      [cp.rows[0].id, o.network, o.address, `Billetera ${o.network} (demo)`, trader, compliance],
+    );
+  }
+  return true;
+};
+
 // Regla de precio de referencia del negocio: compra a TRM − 45, venta a TRM + 15, comisión 0,1 %.
 const pricing: Step = async (tx) => {
   const r = await tx.query('SELECT 1 FROM otc.pricing_rules LIMIT 1');
@@ -175,6 +202,7 @@ export const SEED_STEPS: Array<[string, Step]> = [
   ['usuarios', users],
   ['parametros', deskSettings],
   ['contrapartes', counterparties],
+  ['origenes', origins],
   ['precios', pricing],
   ['limites', limits],
   ['liquidez', liquidity],

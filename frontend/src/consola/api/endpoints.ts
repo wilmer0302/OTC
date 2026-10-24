@@ -31,6 +31,11 @@ export const counterparties = {
   destinations: (status: string) => get<T.Destination[]>('/destinations', { status }),
   decideDestination: (id: string, approve: boolean, note: string, o: W) => post(`/destinations/${id}/decision`, { approve, note }, o),
   revokeDestination: (id: string, reason: string, o: W) => post(`/destinations/${id}/revoke`, { reason }, o),
+  originPolicy: () => get<{ networks: T.Network[]; maxNetworksPerClient: number }>('/origins/policy'),
+  proposeOrigin: (id: string, body: { network: string; address: string; label: string | null }, o: W) => post(`/counterparties/${id}/origins`, body, o),
+  origins: (status: T.OriginAddress['status']) => get<T.OriginAddress[]>('/origins', { status }),
+  decideOrigin: (id: string, approve: boolean, note: string, o: W) => post(`/origins/${id}/decision`, { approve, note }, o),
+  revokeOrigin: (id: string, reason: string, o: W) => post(`/origins/${id}/revoke`, { reason }, o),
 };
 
 export const pricing = {
@@ -85,6 +90,10 @@ export const transfers = {
   check: (id: string) => post(`/transfers/${id}/check`),
   resolveReview: (id: string, to: 'CONFIRMADA' | 'FALLIDA' | 'PENDIENTE', note: string, o: W) =>
     post(`/transfers/${id}/review/resolve`, { to, note }, o),
+  originExceptions: (id: string) => get<T.OriginException[]>(`/transfers/${id}/origin-exceptions`),
+  pendingOriginExceptions: () => get<T.OriginException[]>('/origin-exceptions', { status: 'SOLICITADA' }),
+  requestOriginException: (id: string, reason: string, o: W) => post(`/transfers/${id}/origin-exception`, { reason }, o),
+  decideOriginException: (id: string, approve: boolean, note: string, o: W) => post(`/origin-exceptions/${id}/decision`, { approve, note }, o),
   internal: (body: { fromAccountId: string; toAccountId: string; amount: string; reason: string }, o: W) =>
     post('/transfers/internal', body, o),
 };
@@ -135,7 +144,7 @@ export const settings = {
 
 // Solo existe en modo DEMO: el servidor no publica estas rutas en producción.
 export const sandbox = {
-  simulateTransfer: (id: string, body: { status: string; confirmations?: number; amount?: string; failReason?: string }) =>
+  simulateTransfer: (id: string, body: { status: string; confirmations?: number; amount?: string; failReason?: string; fromAddress?: string; tokenContract?: string }) =>
     post(`/sandbox/transfers/${id}/simulate`, body),
   simulateMovement: (accountId: string, body: { reference: string; direction: 'IN' | 'OUT'; amount: string }) =>
     post(`/sandbox/accounts/${accountId}/movements`, body),

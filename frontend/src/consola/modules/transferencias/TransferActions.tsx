@@ -12,6 +12,10 @@ import { CopyValue } from '../../ui/Copy';
 import { ErrorNotice, useToast } from '../../ui/Feedback';
 import { KeyValue, Notice } from '../../ui/Layout';
 import { Modal, useConfirm } from '../../ui/Modal';
+import { OriginExceptionPanel } from './OriginException';
+
+const SIM_UNKNOWN_ORIGIN = { TRON: 'TDemoRemitenteNoAprobado1111111111', BSC: '0x00000000000000000000000000000000000dead1' };
+const SIM_FAKE_TOKEN = { TRON: 'TDemoTokenNoAutorizado111111111111', BSC: '0x00000000000000000000000000000000000fa1e0' };
 
 type T = Pick<TransferRow, 'id' | 'number' | 'purpose' | 'direction' | 'rail' | 'asset' | 'amount' | 'status' | 'external_ref'>;
 
@@ -122,7 +126,7 @@ export function TransferActions({ t, onChange }: { t: T; onChange: () => void })
       },
     });
 
-  const simulate = (status: string, extra: { amount?: string; failReason?: string } = {}) =>
+  const simulate = (status: string, extra: { amount?: string; failReason?: string; fromAddress?: string; tokenContract?: string } = {}) =>
     run(`sim-${status}`, async () => {
       await sandbox.simulateTransfer(t.id, { status, confirmations: status === 'SUCCESS' ? 100 : status === 'PENDING' ? 1 : undefined, ...extra });
       // Quien gestiona transferencias la verifica de inmediato; si no, la verifica el proceso automático.
@@ -131,6 +135,13 @@ export function TransferActions({ t, onChange }: { t: T; onChange: () => void })
         toast('Simulación aplicada y verificada', 'info');
       } else toast('Simulación aplicada: el proceso automático la verificará en segundos', 'info');
     });
+
+  // Casos de riesgo para la demo: el servidor los manda a revisión. Direcciones ficticias de la red simulada.
+  const simulateOdd = async (extra: { fromAddress?: string; tokenContract?: string }) => {
+    await sandbox.simulateTransfer(t.id, { status: 'SUCCESS', confirmations: 100, ...extra });
+    if (can('transfer.manage')) await transfers.check(t.id);
+    toast('Simulación aplicada', 'info');
+  };
 
   const manage = can('transfer.manage');
   const panels = [];
@@ -199,6 +210,7 @@ export function TransferActions({ t, onChange }: { t: T; onChange: () => void })
       </div>,
     );
   }
+  panels.push(<OriginExceptionPanel key="origin" t={t} onChange={onChange} />);
   if (out && manage && ['CREADA', 'AUTORIZADA', 'EN_FIRMA'].includes(t.status)) {
     panels.push(
       <div className="action-row" key="cancel">
@@ -231,6 +243,16 @@ export function TransferActions({ t, onChange }: { t: T; onChange: () => void })
           <Button size="sm" onClick={() => simulate(bank ? 'REJECTED' : 'FAILED', { failReason: 'Simulación de falla (demo)' })} busy={busy === `sim-${bank ? 'REJECTED' : 'FAILED'}`}>
             Simular {bank ? 'rechazada' : 'fallida'}
           </Button>
+          {!bank && !out && (
+            <>
+              <Button size="sm" onClick={() => run('sim-from', () => simulateOdd({ fromAddress: SIM_UNKNOWN_ORIGIN[t.rail as 'TRON' | 'BSC'] }))} busy={busy === 'sim-from'}>
+                Simular origen no aprobado
+              </Button>
+              <Button size="sm" onClick={() => run('sim-token', () => simulateOdd({ tokenContract: SIM_FAKE_TOKEN[t.rail as 'TRON' | 'BSC'] }))} busy={busy === 'sim-token'}>
+                Simular token falso
+              </Button>
+            </>
+          )}
         </div>
       </div>,
     );

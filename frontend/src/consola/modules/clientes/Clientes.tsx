@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { counterparties, limits, orders } from '../../api/endpoints';
-import type { CounterpartyDetail, CounterpartyRow, Destination, Limits, OrderRow } from '../../api/types';
+import type { CounterpartyDetail, CounterpartyRow, Destination, Limits, OrderRow, OriginAddress } from '../../api/types';
 import { DemoTag } from '../../app/DemoTag';
 import { href, navigate, replaceQuery } from '../../app/router';
 import { useCan, useSession } from '../../app/session';
@@ -19,6 +19,7 @@ import { FormModal } from '../../ui/FormModal';
 import { Card, EmptyState, KeyValue, Loading, Notice, PageHeader, Tabs } from '../../ui/Layout';
 import { useConfirm } from '../../ui/Modal';
 import type { PageProps } from '../index';
+import { OriginQueue, OriginSection } from './Origenes';
 
 const KIND: Record<string, string> = { CLIENTE: 'Cliente', PROVEEDOR: 'Proveedor de liquidez' };
 const PERSON: Record<string, string> = { NATURAL: 'Persona natural', JURIDICA: 'Persona jurídica' };
@@ -34,7 +35,8 @@ const KYC_NEXT: Record<string, string[]> = {
 
 export default function Clientes({ route }: PageProps) {
   const can = useCan();
-  const view = route.query.get('vista') === 'destinos' ? 'destinos' : 'clientes';
+  const vista = route.query.get('vista');
+  const view = vista === 'destinos' || vista === 'origenes' ? vista : 'clientes';
   const selected = route.path[1] ?? null;
   const kyc = route.query.get('kyc') ?? '';
   const [search, setSearch] = useState(route.query.get('q') ?? '');
@@ -42,6 +44,7 @@ export default function Clientes({ route }: PageProps) {
   const [creating, setCreating] = useState(false);
   const list = useQuery<CounterpartyRow[]>(view === 'clientes' ? () => counterparties.list({ search: q || undefined, kyc: kyc || undefined }) : null, [view, q, kyc]);
   const proposed = useQuery<Destination[]>(() => counterparties.destinations('PROPUESTO'), [view]);
+  const pendingOrigins = useQuery<OriginAddress[]>(() => counterparties.origins('PENDIENTE'), [view]);
   const query = { kyc, q: q || undefined };
 
   const columns: Column<CounterpartyRow>[] = [
@@ -69,12 +72,15 @@ export default function Clientes({ route }: PageProps) {
         tabs={[
           { key: 'clientes', label: 'Clientes' },
           { key: 'destinos', label: 'Destinos por aprobar', count: proposed.data?.length ?? 0 },
+          { key: 'origenes', label: 'Orígenes por aprobar', count: pendingOrigins.data?.length ?? 0 },
         ]}
         active={view}
-        onChange={(k) => navigate('clientes', { vista: k === 'destinos' ? 'destinos' : undefined })}
+        onChange={(k) => navigate('clientes', { vista: k === 'clientes' ? undefined : k })}
       />
       {view === 'destinos' ? (
         <DestinationQueue list={proposed} />
+      ) : view === 'origenes' ? (
+        <OriginQueue list={pendingOrigins} />
       ) : (
         <div className={selected ? 'split' : ''}>
           <Card flush title={<>Contrapartes <DemoTag /></>}>
@@ -257,6 +263,8 @@ function ClientDrawer({ id, onClose }: { id: string; onClose: () => void }) {
       ) : (
         <EmptyState title="Sin destinos registrados">El cliente necesita al menos un destino aprobado para recibir pagos.</EmptyState>
       )}
+
+      <OriginSection c={c} onDone={detail.reload} />
 
       <h3>Límites vigentes</h3>
       {lim.error ? <ErrorNotice error={lim.error} compact /> : lim.data ? (

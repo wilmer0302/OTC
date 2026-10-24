@@ -50,6 +50,12 @@ Fecha de inicio: 2026-10-20. El diseño completo está en el documento de Fase 1
 | 42 | Los botones de aprobar se ocultan a quien propuso (ajustes, destinos, límites); el servidor rechaza igual la autoaprobación | Separación de funciones | Implementada (fase 5) |
 | 43 | La consola no ofrece cambiar roles ni desactivar el propio usuario; el servidor solo exige que quede un administrador activo | Evitar errores; reforzarlo en el servidor queda por decidir | Implementada (fase 5), revisable |
 | 44 | Solo se vinculan empresas: el servidor rechaza contrapartes que no sean persona jurídica con NIT. La base conserva los tipos de persona natural (no se migra), así que reabrirlo es un cambio de una regla | Pedido de Wilmer (2026-10-23): el comprador solo atiende clientes corporativos (B2B) | Implementada |
+| 45 | Billeteras de origen por cliente (`otc.origin_addresses`): estados pendiente, aprobada, rechazada y revocada. Operación registra cada dirección y la aprueba otra persona de Cumplimiento, con segundo factor, nota y auditoría. Sin tope de direcciones por red | Un depósito de USDT solo se abona si sale de una billetera conocida del cliente (pedido de Wilmer, 2026-10-24) | Implementada sobre la red SIMULADA |
+| 46 | Un cobro en Tron o BSC se abona solo si el origen que informa la red es una billetera APROBADA de ese cliente en esa misma red. Si es desconocida, pendiente, rechazada, revocada o de otro cliente, va a revisión, sin asiento contable ni liquidación | La regla vive en `decide()` del backend; el formulario no informa el origen | Implementada sobre la red SIMULADA |
+| 47 | Toda transferencia en Tron o BSC exige que el contrato del token sea el USDT autorizado de esa red; si falta o no coincide, va a revisión. El símbolo del activo no basta | Un token falso con el mismo monto y destino pasaría sin este control | Implementada sobre la red SIMULADA; los contratos de la demo son ficticios |
+| 48 | Máximo de redes distintas por cliente: 4 por defecto, en `platform/policy.ts` (variable `ORIGIN_MAX_NETWORKS`), validado en el servidor. Hoy solo hay dos redes soportadas (Tron y BSC), así que el tope no se alcanza; la prueba lo baja a 1 | Configuración central en un solo lugar | Implementada |
+| 49 | Las direcciones se comparan por red: en BSC sin distinguir mayúsculas, en Tron exacta. Una dirección viva (pendiente o aprobada) no se repite en la misma red, ni para el mismo cliente ni para otro. La misma cadena en otra red es otra billetera | No suponer equivalencia entre redes | Implementada |
+| 50 | Excepción de origen por depósito: Operación o Tesorería la solicitan con motivo y otra persona de Cumplimiento la autoriza con segundo factor. El origen se toma de la evidencia de la red, no del formulario. La excepción no abona nada: después un administrador resuelve la revisión y el servidor vuelve a exigir la evidencia. No sirve para tokens falsos ni montos distintos | Excepciones solo por un flujo explícito, con autorización independiente | Implementada sobre la red SIMULADA |
 
 ## Supuestos abiertos
 
@@ -57,6 +63,7 @@ Fecha de inicio: 2026-10-20. El diseño completo está en el documento de Fase 1
 - La fuente oficial automática de TRM no está elegida; en la demo se ingresa a mano y queda registrada.
 - Los decimales de USDT por red (6 en Tron, 18 en BSC) se verifican contra cada contrato antes de integrar redes reales.
 - No se verificó si Bancolombia ofrece una API de pagos para empresas; en la demo los pesos se registran con su referencia.
+- La verificación del origen y del contrato del token (decisiones 45 a 50) corre hoy contra la red SIMULADA (`otc.sandbox_chain_txs`). En producción depende de lectores reales de Tron y BSC que todavía no existen y de los contratos oficiales de USDT, verificados en fuentes de Tether.
 - Valores de ejemplo de la demo (umbral de 50.000.000 COP, límite de 200.000 USDT, vigencia de 120 s, saldos iniciales) son ficticios; cada cliente fija los suyos.
 
 ## Pendiente para versiones siguientes

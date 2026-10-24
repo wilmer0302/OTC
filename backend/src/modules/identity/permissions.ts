@@ -14,6 +14,10 @@ export const PERMISSIONS = {
   'kyc.decide': ['CUMPLIMIENTO'],
   'destination.propose': ['OPERADOR'],
   'destination.decide': ['CUMPLIMIENTO', 'ADMIN'],
+  'origin.propose': ['OPERADOR'], // registrar billeteras de origen de un cliente
+  'origin.decide': ['CUMPLIMIENTO'], // aprobar, rechazar y revocar billeteras de origen
+  'origin.exception.request': ['OPERADOR', 'TESORERO'], // pedir que se acepte un depósito de origen no aprobado
+  'origin.exception.decide': ['CUMPLIMIENTO'], // autorizarlo o negarlo (persona distinta de quien lo pidió)
   'request.create': ['OPERADOR'],
   'request.cancel': ['OPERADOR', 'ADMIN'],
   'quote.create': ['OPERADOR'],

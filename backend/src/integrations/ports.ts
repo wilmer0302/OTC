@@ -11,6 +11,10 @@ export interface ChainTxObservation {
   confirmations?: number;
   /** Dirección que recibió los USDT. */
   to?: string;
+  /** Dirección que envió los USDT, tal como la reporta la red (nunca la que informa el cliente). */
+  from?: string;
+  /** Contrato del token transferido. Se compara con el contrato autorizado, no con el símbolo. */
+  tokenContract?: string;
   /** Monto en unidades base del token (6 decimales en Tron, 18 en BSC). */
   amountBaseUnits?: string;
   blockNumber?: string;
@@ -29,6 +33,8 @@ export interface ChainStatementLine {
 export interface ChainReader {
   readonly sandbox: boolean;
   isValidAddress(network: Network, address: string): boolean;
+  /** Contrato USDT autorizado en esa red para este entorno. */
+  usdtContract(network: Network): string;
   getTransaction(network: Network, txHash: string): Promise<ChainTxObservation>;
   listTransfers(network: Network, address: string, businessDate: string): Promise<ChainStatementLine[]>;
 }

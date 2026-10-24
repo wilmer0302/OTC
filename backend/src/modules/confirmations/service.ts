@@ -11,6 +11,7 @@ import { accountByCode, consumeReservation, openReservationForTransfer, postEntr
 import { advanceWithEvidence, lockOrder, onDeliveryFailed, reviewFromTransfer } from '../orders/service.js';
 import { lockTransfer, moveTransfer, type TransferRow } from '../transfers/service.js';
 import { decide, type Decision, type Expected, type Observed } from './domain.js';
+import { authorizedOrigins } from './origins.js';
 
 // Confirmaciones externas. Una transferencia solo cuenta como hecha cuando el banco o la red lo
 // reportan con el umbral configurado y coinciden destino y monto. La consulta externa se hace
@@ -25,11 +26,12 @@ interface Target {
 
 const TRACKED = ['ENVIADA', 'PENDIENTE', 'EN_REVISION'];
 
-async function loadTarget(q: Db | Ctx['tx'], transferId: string): Promise<Target> {
+async function loadTarget(q: Db | Ctx['tx'], integrations: Integrations, transferId: string): Promise<Target> {
   const r = await q.query(
-    `SELECT t.*, a.external_ref AS account_ref, d.value AS dest_value, ta.external_ref AS to_account_ref
+    `SELECT t.*, a.external_ref AS account_ref, d.value AS dest_value, ta.external_ref AS to_account_ref, o.counterparty_id
      FROM otc.transfers t JOIN otc.accounts a ON a.id = t.account_id
      LEFT JOIN otc.destinations d ON d.id = t.destination_id LEFT JOIN otc.accounts ta ON ta.id = t.to_account_id
+     LEFT JOIN otc.orders o ON o.id = t.order_id
      WHERE t.id = $1`,
     [transferId],
   );
@@ -37,10 +39,19 @@ async function loadTarget(q: Db | Ctx['tx'], transferId: string): Promise<Target
   const transfer = row as TransferRow;
   const to = transfer.direction === 'IN' ? row.account_ref : (row.dest_value ?? row.to_account_ref);
   const amount = transfer.rail === 'BANK' ? new D(transfer.amount).toFixed(0) : usdtToBaseUnits(new D(transfer.amount), transfer.rail);
+  const chain = transfer.rail !== 'BANK' ? transfer.rail : null;
   return {
     transfer,
     accountRef: row.account_ref,
-    expected: { to: transfer.rail === 'BANK' ? null : to, direction: transfer.direction, amount },
+    expected: {
+      to: chain ? to : null,
+      direction: transfer.direction,
+      amount,
+      network: chain,
+      tokenContract: chain ? integrations.chain.usdtContract(chain) : null,
+      // Control de origen: solo en los cobros en USDT, que son los depósitos de clientes.
+      allowedFrom: chain && transfer.purpose === 'COBRO' ? await authorizedOrigins(q, row.counterparty_id, chain, transfer.id) : null,
+    },
   };
 }
 
@@ -66,7 +77,16 @@ async function observe(integrations: Integrations, target: Target, now: () => Da
       obs = { found: m.found, status: m.status, direction: m.direction, amount: m.amountCop, detail: m.detail };
     } else {
       const x = await integrations.chain.getTransaction(t.rail, t.external_ref!);
-      obs = { found: x.found, status: x.status, confirmations: x.confirmations, to: x.to, amount: x.amountBaseUnits, detail: x.detail };
+      obs = {
+        found: x.found,
+        status: x.status,
+        confirmations: x.confirmations,
+        to: x.to,
+        from: x.from,
+        tokenContract: x.tokenContract,
+        amount: x.amountBaseUnits,
+        detail: x.detail,
+      };
     }
   } catch (e) {
     call.ok = false;
@@ -200,7 +220,7 @@ export interface TrackDeps {
  */
 export async function checkTransfer(deps: TrackDeps, transferId: string) {
   const { db, integrations } = deps;
-  const target = await loadTarget(db, transferId);
+  const target = await loadTarget(db, integrations, transferId);
   if (!TRACKED.includes(target.transfer.status) || !target.transfer.external_ref) return { status: target.transfer.status, applied: false };
   const { obs, call } = await observe(integrations, target, deps.now);
   return inTransaction(db, async (tx) => {
@@ -265,7 +285,7 @@ export async function resolveTransferReview(ctx: Ctx, id: string, to: 'CONFIRMAD
   const evidence = last.rows[0]?.payload;
   if (to === 'CONFIRMADA') {
     // La evidencia debe mostrar éxito con el umbral y coincidir en destino, sentido y monto.
-    const target = await loadTarget(ctx.tx, id);
+    const target = await loadTarget(ctx.tx, ctx.integrations, id);
     const settings = await getDeskSettings(ctx);
     const required = t.rail === 'TRON' ? settings.tron_confirmations : t.rail === 'BSC' ? settings.bsc_confirmations : 0;
     const verdict = evidence

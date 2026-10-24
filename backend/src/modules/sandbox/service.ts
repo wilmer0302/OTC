@@ -21,6 +21,10 @@ export interface SimulateInput {
   /** Para simular un envío equivocado: otro monto (USDT o pesos) u otra dirección. */
   amount?: string;
   toAddress?: string;
+  /** Para simular un depósito desde otra billetera (por omisión, una aprobada del cliente si existe). */
+  fromAddress?: string;
+  /** Para simular otro token (por omisión, el contrato USDT autorizado de la red simulada). */
+  tokenContract?: string;
   failReason?: string;
 }
 
@@ -31,7 +35,9 @@ export interface SimulateInput {
 export async function simulateFor(ctx: Ctx, transferId: string, input: SimulateInput) {
   assertSandbox(ctx);
   const r = await ctx.tx.query(
-    `SELECT t.*, a.external_ref AS account_ref, d.value AS dest_value, ta.external_ref AS to_account_ref
+    `SELECT t.*, a.external_ref AS account_ref, d.value AS dest_value, ta.external_ref AS to_account_ref,
+       (SELECT oa.address FROM otc.orders o JOIN otc.origin_addresses oa ON oa.counterparty_id = o.counterparty_id
+         WHERE o.id = t.order_id AND oa.network = t.rail AND oa.status = 'APROBADA' ORDER BY oa.decided_at LIMIT 1) AS client_origin
      FROM otc.transfers t JOIN otc.accounts a ON a.id = t.account_id
      LEFT JOIN otc.destinations d ON d.id = t.destination_id LEFT JOIN otc.accounts ta ON ta.id = t.to_account_id
      WHERE t.id = $1`,
@@ -53,17 +59,19 @@ export async function simulateFor(ctx: Ctx, transferId: string, input: SimulateI
   } else {
     if (!['PENDING', 'SUCCESS', 'FAILED'].includes(input.status)) throw invalid('La red responde PENDING, SUCCESS o FAILED');
     const desk = t.account_ref ?? 'SANDBOX-SIN-DIRECCION';
-    const other = t.direction === 'IN' ? 'SANDBOX-ORIGEN-CLIENTE' : (t.dest_value ?? t.to_account_ref ?? 'SANDBOX-SIN-DIRECCION');
-    const from = t.direction === 'IN' ? other : desk;
+    const other = t.direction === 'IN' ? (t.client_origin ?? 'SANDBOX-ORIGEN-DESCONOCIDO') : (t.dest_value ?? t.to_account_ref ?? 'SANDBOX-SIN-DIRECCION');
+    const from = input.fromAddress ?? (t.direction === 'IN' ? other : desk);
+    const contract = input.tokenContract ?? ctx.integrations.chain.usdtContract(t.rail);
     const to = input.toAddress ?? (t.direction === 'IN' ? desk : other);
     const units = usdtToBaseUnits(new D(input.amount ?? t.amount), t.rail);
     await ctx.tx.query(
       `INSERT INTO otc.sandbox_chain_txs (network, tx_hash, status, confirmations, from_address, to_address, amount_base_units,
-         fail_reason, occurred_at, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+         fail_reason, occurred_at, created_by, token_contract)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
        ON CONFLICT (network, lower(tx_hash)) DO UPDATE SET status = EXCLUDED.status, confirmations = EXCLUDED.confirmations,
-         to_address = EXCLUDED.to_address, amount_base_units = EXCLUDED.amount_base_units, fail_reason = EXCLUDED.fail_reason`,
-      [t.rail, t.external_ref, input.status, input.confirmations ?? 0, from, to, units, input.failReason ?? null, now, actorDbId(ctx.actor)],
+         from_address = EXCLUDED.from_address, to_address = EXCLUDED.to_address, amount_base_units = EXCLUDED.amount_base_units,
+         fail_reason = EXCLUDED.fail_reason, token_contract = EXCLUDED.token_contract`,
+      [t.rail, t.external_ref, input.status, input.confirmations ?? 0, from, to, units, input.failReason ?? null, now, actorDbId(ctx.actor), contract],
     );
   }
   await recordAction(ctx, 'sandbox.simulate', 'transfer', transferId, { ...input, sandbox: true });
@@ -94,8 +102,8 @@ export async function simulateMovement(
   } else if (account.liquidity_type === 'WALLET') {
     const other = input.counterpartyRef ?? 'SANDBOX-CONTRAPARTE';
     await ctx.tx.query(
-      `INSERT INTO otc.sandbox_chain_txs (network, tx_hash, status, confirmations, from_address, to_address, amount_base_units, occurred_at, created_by)
-       VALUES ($1,$2,'SUCCESS',100,$3,$4,$5,$6,$7)`,
+      `INSERT INTO otc.sandbox_chain_txs (network, tx_hash, status, confirmations, from_address, to_address, amount_base_units, occurred_at, created_by, token_contract)
+       VALUES ($1,$2,'SUCCESS',100,$3,$4,$5,$6,$7,$8)`,
       [
         account.network,
         input.reference,
@@ -104,6 +112,7 @@ export async function simulateMovement(
         usdtToBaseUnits(new D(input.amount), account.network),
         now,
         actorDbId(ctx.actor),
+        ctx.integrations.chain.usdtContract(account.network),
       ],
     );
   } else {

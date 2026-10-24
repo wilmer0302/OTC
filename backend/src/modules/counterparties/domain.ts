@@ -26,3 +26,32 @@ export function mask(value: string): string {
 
 /** Red en la que se entrega USDT, o banco para pesos. */
 export const railFor = (asset: 'COP' | 'USDT', network: 'TRON' | 'BSC'): Rail => (asset === 'COP' ? 'BANK' : network);
+
+// ---------- Billeteras de origen ----------
+
+export type Network = 'TRON' | 'BSC';
+export type OriginStatus = 'PENDIENTE' | 'APROBADA' | 'RECHAZADA' | 'REVOCADA';
+
+/** Redes en las que la plataforma acepta depósitos de USDT. Cualquier otra se rechaza. */
+export const SUPPORTED_NETWORKS: readonly Network[] = ['TRON', 'BSC'];
+
+/**
+ * Clave para comparar direcciones de una misma red: en BSC (EVM) las mayúsculas no cambian la
+ * dirección; en Tron (Base58) sí. Una dirección solo se compara con otras de su misma red.
+ */
+export const addressKey = (network: Network, address: string) => (network === 'BSC' ? address.trim().toLowerCase() : address.trim());
+
+/** Solo una dirección aprobada supera el control de origen. */
+export const originAllowsDeposits = (status: OriginStatus) => status === 'APROBADA';
+
+/** Una dirección se cuenta en el límite de redes mientras está pendiente o aprobada. */
+export const originIsLive = (status: OriginStatus) => status === 'PENDIENTE' || status === 'APROBADA';
+
+/**
+ * ¿Cabe una dirección nueva en esta red? Si el cliente ya tiene la red habilitada, siempre cabe
+ * (no hay límite de direcciones por red); si no, solo mientras no llegue al máximo de redes.
+ */
+export function networkFits(liveNetworks: readonly Network[], network: Network, maxNetworks: number): boolean {
+  const distinct = new Set(liveNetworks);
+  return distinct.has(network) || distinct.size < maxNetworks;
+}

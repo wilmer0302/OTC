@@ -16,6 +16,7 @@ import { FilterBar, FilterSelect, SearchInput } from '../../ui/Form';
 import { Card, EmptyState, KeyValue, Loading, Notice, PageHeader, Tabs } from '../../ui/Layout';
 import { Timeline } from '../../ui/Timeline';
 import type { PageProps } from '../index';
+import { PendingOriginExceptions } from './OriginException';
 import { TransferActions } from './TransferActions';
 
 const RAIL_TABS = [
@@ -74,6 +75,7 @@ export default function Transferencias({ route }: PageProps) {
         title="Transferencias"
         subtitle="Movimientos de USDT por Tron (TRC20) y BSC (BEP20) y pagos en pesos. Cada uno se verifica contra la red o el banco; la plataforma no firma ni guarda llaves."
       />
+      <PendingOriginExceptions />
       <Tabs tabs={RAIL_TABS.map((t) => ({ key: t.key, label: t.label }))} active={rail as (typeof RAIL_TABS)[number]['key']} onChange={(k) => setFilter('red', k)} />
       <div className={selected ? 'split' : ''}>
         <Card flush title={<>Transferencias <DemoTag /></>}>

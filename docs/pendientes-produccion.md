@@ -1,12 +1,14 @@
 # Pendientes antes de producción: control de origen de depósitos
 
-Estado al 2026-10-24. Vienen de la revisión técnica de los PR #3, #4 y #5. Ninguno está resuelto. Los que dependen de lectores reales de Tron o BSC no se pueden dar por resueltos hasta que esos lectores existan y se prueben en testnet y en modo sombra.
+Estado al 2026-10-24. Vienen de la revisión técnica de los PR #3, #4 y #5. I1 e I2 (en la red) están resueltos; el resto no. Los que dependen de lectores reales de Tron o BSC no se pueden dar por resueltos hasta que esos lectores existan y se prueben en testnet y en modo sombra.
 
 Hoy el modo PRODUCTION se niega a arrancar (`backend/src/config.ts`), así que estos puntos no afectan la demo.
 
 Todas las pruebas actuales corren contra la red SIMULADA (`otc.sandbox_chain_txs`). No demuestran seguridad en Tron ni en BSC reales.
 
-## I1. Carrera entre revocar una billetera y confirmar un depósito
+## I1. Carrera entre revocar una billetera y confirmar un depósito — resuelto para los orígenes
+
+**Estado (2026-10-24).** `checkTransfer` y `resolveTransferReview` vuelven a leer los orígenes autorizados dentro de la transacción, después de `lockTransfer`, con `FOR SHARE` sobre las billeteras y las excepciones. Pruebas en `test/v1/tron.test.ts` (revocación confirmada durante la consulta, revocación en curso al decidir, tres revisiones simultáneas con un solo asiento). Los destinos no se bloquean: en una entrega el destino queda fijado en la transferencia antes de enviarla.
 
 **Problema.** `checkTransfer` calcula los orígenes autorizados fuera de la transacción (`confirmations/service.ts`, `loadTarget(db, …)`) y decide dentro de ella con ese cálculo. Supongamos que Cumplimiento revoca la billetera entre los dos momentos. El depósito se abona igual desde una billetera ya revocada. Lo mismo ocurre con los destinos aprobados.
 

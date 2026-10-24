@@ -15,10 +15,10 @@ import { decide, type Observed } from './domain.js';
 // transferencia y para la dirección que reportó la red, no para la dirección en general.
 
 /** Orígenes que superan el control para esta transferencia: aprobados del cliente y excepciones autorizadas. */
-export async function authorizedOrigins(q: Db | Tx, counterpartyId: string | null, network: Network, transferId: string): Promise<string[]> {
-  const approved = counterpartyId ? await approvedOriginAddresses(q, counterpartyId, network) : [];
+export async function authorizedOrigins(q: Db | Tx, counterpartyId: string | null, network: Network, transferId: string, lock = false): Promise<string[]> {
+  const approved = counterpartyId ? await approvedOriginAddresses(q, counterpartyId, network, lock) : [];
   const exceptions = await q.query<{ from_address: string }>(
-    `SELECT from_address FROM otc.origin_exceptions WHERE transfer_id = $1 AND network = $2 AND status = 'APROBADA'`,
+    `SELECT from_address FROM otc.origin_exceptions WHERE transfer_id = $1 AND network = $2 AND status = 'APROBADA'${lock ? ' FOR SHARE' : ''}`,
     [transferId, network],
   );
   return [...approved, ...exceptions.rows.map((x) => x.from_address)];

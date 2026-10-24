@@ -2,13 +2,13 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { inTransaction } from '../../src/platform/tx.js';
 import { SYSTEM_ACTOR } from '../../src/platform/context.js';
 import { buildIntegrations, tronConfigFromEnv } from '../../src/integrations/factory.js';
-import type { Integrations } from '../../src/integrations/ports.js';
+import type { ChainReader, Integrations } from '../../src/integrations/ports.js';
 import { ChainRouter } from '../../src/integrations/router.js';
 import { SANDBOX_USDT_CONTRACT, SandboxBank, SandboxChain } from '../../src/integrations/sandbox.js';
 import { isValidTronAddress, tronBase58ToHex, tronHexToBase58 } from '../../src/integrations/tron/address.js';
 import { TRC20_TRANSFER_TOPIC, TronGridReader } from '../../src/integrations/tron/reader.js';
 import { checkTransfer } from '../../src/modules/confirmations/service.js';
-import { decideOrigin, proposeOrigin } from '../../src/modules/counterparties/origins.js';
+import { decideOrigin, proposeOrigin, revokeOrigin } from '../../src/modules/counterparties/origins.js';
 import { registerPayment } from '../../src/modules/orders/service.js';
 import { recordTrm } from '../../src/modules/pricing/service.js';
 import { simulateFor } from '../../src/modules/sandbox/service.js';
@@ -321,6 +321,78 @@ describe('depósitos TRON con el lector real (nodo falso) y la base de datos', (
 
     expect((await check(d.transferId)).status).toBe('CONFIRMADA');
     expect(await entries(d.orderId)).toBe(1);
+  });
+
+  // I1: la autorización del origen se vuelve a leer dentro de la transacción que confirma.
+  /** Billetera aprobada para Andina solo para una prueba, que luego la revoca. */
+  async function approvedOrigin(n: number) {
+    const address = addr(n);
+    const o = await as(env, 'trader', (ctx) => proposeOrigin(ctx, andina, { network: 'TRON', address, label: `Revocable ${n}` }));
+    await as(env, 'cumplimiento', (ctx) => decideOrigin(ctx, o.id as string, true, 'Billetera de prueba verificada'));
+    return { id: o.id as string, address };
+  }
+  /** Integraciones cuyo lector TRON ejecuta `during` después de consultar la red y antes de devolver. */
+  function hooked(during: () => Promise<void>): Integrations {
+    const tron = new TronGridReader({ rpcUrl: 'https://nodo-de-prueba.invalid', usdtContract: TEST_USDT, timeoutMs: 2000, fetch: node.fetch });
+    const reader: ChainReader = {
+      ...tron,
+      getTransaction: async (n, h) => {
+        const obs = await tron.getTransaction(n, h);
+        await during();
+        return obs;
+      },
+    };
+    return { chain: new ChainRouter({ TRON: reader, BSC: new SandboxChain(env.db) }), bank: real.bank };
+  }
+  const revoke = (id: string) => as(env, 'cumplimiento', (ctx) => revokeOrigin(ctx, id, 'Revocada durante la confirmación'));
+
+  it('I1: revocación confirmada mientras se consulta la red: revisión, sin asiento', async () => {
+    const o = await approvedOrigin(0xa11ce1);
+    const d = await order();
+    node.solid.set(d.hash, receipt(d.hash, [transferLog(TEST_USDT, o.address, DESK, 100_000_000n)]));
+    const integrations = hooked(() => revoke(o.id).then(() => undefined));
+    const r = await checkTransfer({ db: env.db, integrations, now: env.clock.now, actor: SYSTEM_ACTOR }, d.transferId);
+    expect(r.status).toBe('EN_REVISION');
+    expect(await lastNote(d.transferId)).toContain('Origen no autorizado');
+    expect(await entries(d.orderId)).toBe(0);
+  });
+
+  it('I1: revocación en curso al decidir: la confirmación espera el bloqueo y manda a revisión, sin asiento', async () => {
+    const o = await approvedOrigin(0xa11ce2);
+    const d = await order();
+    node.solid.set(d.hash, receipt(d.hash, [transferLog(TEST_USDT, o.address, DESK, 100_000_000n)]));
+    const client = await env.db.connect();
+    try {
+      // Cumplimiento revoca en una transacción que todavía no confirma: la fila queda bloqueada FOR UPDATE.
+      await client.query('BEGIN');
+      const admin = await actorOf(env.db, 'cumplimiento');
+      await revokeOrigin({ tx: client, actor: admin, integrations: real, now: env.clock.now }, o.id, 'Revocación en curso');
+      const pending = check(d.transferId);
+      let waiting = false;
+      for (let i = 0; i < 100 && !waiting; i++) {
+        await new Promise((r) => setTimeout(r, 20));
+        const w = await env.db.query(`SELECT count(*)::int AS n FROM pg_stat_activity WHERE wait_event_type = 'Lock' AND query ILIKE '%origin_addresses%FOR SHARE%'`);
+        waiting = w.rows[0].n > 0;
+      }
+      expect(waiting).toBe(true); // la confirmación está esperando a la revocación
+      await client.query('COMMIT');
+      const r = await pending;
+      expect(r.status).toBe('EN_REVISION');
+      expect(await entries(d.orderId)).toBe(0);
+    } finally {
+      client.release();
+    }
+  });
+
+  it('dos revisiones simultáneas del mismo depósito: un solo asiento y una sola confirmación', async () => {
+    const d = await order();
+    node.solid.set(d.hash, receipt(d.hash, [transferLog(TEST_USDT, CLIENT, DESK, 100_000_000n)]));
+    const results = await Promise.all([check(d.transferId), check(d.transferId), check(d.transferId)]);
+    expect(results.filter((r) => r.applied)).toHaveLength(1);
+    expect(await statusOf(d.transferId)).toBe('CONFIRMADA');
+    expect(await entries(d.orderId)).toBe(1);
+    const confirmed = await env.db.query(`SELECT count(*)::int AS n FROM otc.observations WHERE transfer_id = $1 AND outcome = 'CONFIRMADA'`, [d.transferId]);
+    expect(confirmed.rows[0].n).toBe(1);
   });
 
   it('con el lector real, el simulador no escribe sobre TRON', async () => {

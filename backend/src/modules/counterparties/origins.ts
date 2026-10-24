@@ -151,9 +151,10 @@ export async function listOrigins(ctx: Ctx, status: OriginStatus) {
 }
 
 /** Direcciones aprobadas de un cliente en una red: las únicas que superan el control de origen. */
-export async function approvedOriginAddresses(q: Db | Tx, counterpartyId: string, network: Network): Promise<string[]> {
+/** Con `lock`, bloquea las filas FOR SHARE: una revocación concurrente espera a que termine la transacción. */
+export async function approvedOriginAddresses(q: Db | Tx, counterpartyId: string, network: Network, lock = false): Promise<string[]> {
   const r = await q.query<{ address: string }>(
-    `SELECT address FROM otc.origin_addresses WHERE counterparty_id = $1 AND network = $2 AND status = 'APROBADA'`,
+    `SELECT address FROM otc.origin_addresses WHERE counterparty_id = $1 AND network = $2 AND status = 'APROBADA'${lock ? ' FOR SHARE' : ''}`,
     [counterpartyId, network],
   );
   return r.rows.map((x) => x.address);

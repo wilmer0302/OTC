@@ -136,6 +136,8 @@ npm run dev            # http://localhost:3000
 npx tsx src/worker.ts  # trabajador, en otra terminal
 npm test               # usa TEST_DATABASE_URL (por defecto .../otc_test); BORRA esa base
 npx vitest run test/v1/tron.test.ts   # solo el lector de TRON (nodo falso, sin conexión a la red)
+# prueba REAL de solo lectura contra un nodo TRON; fuera de `npm test`, deja el informe en test-real/out/
+TRON_RPC_URL=https://nile.trongrid.io npm run test:tron-real   # ver variables en test-real/tron.real.test.ts
 
 # frontend
 cd frontend && npm install && npm run dev   # http://localhost:5173

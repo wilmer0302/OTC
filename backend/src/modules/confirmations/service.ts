@@ -26,7 +26,8 @@ interface Target {
 
 const TRACKED = ['ENVIADA', 'PENDIENTE', 'EN_REVISION'];
 
-async function loadTarget(q: Db | Ctx['tx'], integrations: Integrations, transferId: string): Promise<Target> {
+/** Con `lock` (dentro de la transacción que decide), bloquea los orígenes autorizados que lee. */
+async function loadTarget(q: Db | Ctx['tx'], integrations: Integrations, transferId: string, lock = false): Promise<Target> {
   const r = await q.query(
     `SELECT t.*, a.external_ref AS account_ref, d.value AS dest_value, ta.external_ref AS to_account_ref, o.counterparty_id
      FROM otc.transfers t JOIN otc.accounts a ON a.id = t.account_id
@@ -50,7 +51,7 @@ async function loadTarget(q: Db | Ctx['tx'], integrations: Integrations, transfe
       network: chain,
       tokenContract: chain ? integrations.chain.usdtContract(chain) : null,
       // Control de origen: solo en los cobros en USDT, que son los depósitos de clientes.
-      allowedFrom: chain && transfer.purpose === 'COBRO' ? await authorizedOrigins(q, row.counterparty_id, chain, transfer.id) : null,
+      allowedFrom: chain && transfer.purpose === 'COBRO' ? await authorizedOrigins(q, row.counterparty_id, chain, transfer.id, lock) : null,
     },
   };
 }
@@ -220,7 +221,7 @@ export interface TrackDeps {
 }
 
 /**
- * Revisa una transferencia: consulta fuera de la transacción y aplica el resultado dentro.
+ * Revisa una transferencia: consulta fuera de la transacción y decide y aplica el resultado dentro.
  * En revisión, lo observado solo se guarda como evidencia; decide un responsable.
  */
 export async function checkTransfer(deps: TrackDeps, transferId: string) {
@@ -261,7 +262,10 @@ export async function checkTransfer(deps: TrackDeps, transferId: string) {
       reviewSeconds: settings.transfer_review_seconds,
       requiredConfirmations: t.rail === 'TRON' ? settings.tron_confirmations : t.rail === 'BSC' ? settings.bsc_confirmations : 0,
     };
-    const decision = decide(obs, target.expected, timing);
+    // La autorización del origen se vuelve a leer aquí, con la transferencia ya bloqueada y los
+    // orígenes FOR SHARE: una revocación confirmada antes cuenta, y una en curso espera a que esto termine.
+    const fresh = await loadTarget(tx, integrations, transferId, true);
+    const decision = decide(obs, fresh.expected, timing);
     const moved = await applyDecision(ctx, t, decision, obs, ageSeconds >= timing.pendingSeconds);
     return { status: moved.status, applied: true, decision };
   });
@@ -298,7 +302,7 @@ export async function resolveTransferReview(ctx: Ctx, id: string, to: 'CONFIRMAD
   const evidence = last.rows[0]?.payload;
   if (to === 'CONFIRMADA') {
     // La evidencia debe mostrar éxito con el umbral y coincidir en destino, sentido y monto.
-    const target = await loadTarget(ctx.tx, ctx.integrations, id);
+    const target = await loadTarget(ctx.tx, ctx.integrations, id, true);
     const settings = await getDeskSettings(ctx);
     const required = t.rail === 'TRON' ? settings.tron_confirmations : t.rail === 'BSC' ? settings.bsc_confirmations : 0;
     const verdict = evidence

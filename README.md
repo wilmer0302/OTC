@@ -10,17 +10,38 @@ reglas de aprobación.
 
 Diseño técnico completo: <https://claude.ai/artifact/6VoDLM9Cp1Va7YVH1RSLfV>
 
-## Correr la demo en tu equipo
+## Ejecutar en local
 
-Requisito: [Docker Desktop](https://www.docker.com/products/docker-desktop/) instalado y abierto.
+Hay dos formas de ejecutarlo. Para mostrar el producto usa la opción 1 (Docker): no hace falta instalar Node.js ni PostgreSQL. La opción 2 es para desarrollar.
 
-```bash
-git clone https://github.com/wilmer0302/OTC.git
-cd OTC
-docker compose up --build
-```
+En los dos casos el producto arranca en modo **DEMO**: datos ficticios, bancos y redes simulados, y ningún fondo real.
 
-Abre <http://localhost:8080>. La primera vez tarda unos minutos mientras descarga y construye.
+### Opción 1: con Docker (recomendada)
+
+**Requisitos:** [Git](https://git-scm.com/downloads) y [Docker Desktop](https://www.docker.com/products/docker-desktop/), instalado y abierto. El puerto 8080 de tu equipo debe estar libre.
+
+1. Descarga el código:
+
+   ```bash
+   git clone https://github.com/wilmer0302/OTC.git
+   cd OTC
+   ```
+
+2. Arranca todo (base de datos, API, trabajador y consola):
+
+   ```bash
+   docker compose up --build
+   ```
+
+   La primera vez tarda unos minutos mientras descarga y construye. Está listo cuando en la terminal aparece
+   `Integraciones: TRON, BSC y banco: sandbox` y la API deja de mostrar errores. Las migraciones de la base y los
+   datos de demostración se cargan solos al arrancar.
+
+3. Abre en el navegador:
+   - Consola de operación: <http://localhost:8080/consola/>
+   - Demo anterior: <http://localhost:8080>
+
+4. Ingresa con uno de estos usuarios:
 
 | Usuario | Contraseña | Roles |
 | --- | --- | --- |
@@ -31,8 +52,33 @@ Abre <http://localhost:8080>. La primera vez tarda unos minutos mientras descarg
 | `cumplimiento` | `demo1234` | Cumplimiento (KYC y lista blanca de destinos), solo en `/api/v1` |
 | `admin2` | `demo1234` | Segunda firma de administración, solo en `/api/v1` |
 
-Para apagarla: `Ctrl + C`, y `docker compose down`. Para borrar los datos y empezar de cero:
-`docker compose down -v`.
+5. La consola pide un **segundo factor**. La primera vez muestra un código QR: escanéalo con una aplicación de
+   autenticación (Google Authenticator, Microsoft Authenticator, 1Password…) y escribe el código de 6 dígitos.
+   Cada usuario registra su propio código la primera vez que entra.
+
+**Apagar, reiniciar y actualizar**
+
+| Acción | Comando |
+| --- | --- |
+| Apagar | `Ctrl + C` y luego `docker compose down` |
+| Volver a arrancar | `docker compose up` |
+| Borrar los datos y empezar de cero | `docker compose down -v` y luego `docker compose up --build` |
+| Traer la última versión | `git pull` y luego `docker compose up --build` |
+| Ver los registros de la API o del trabajador | `docker compose logs -f backend` o `docker compose logs -f worker` |
+
+Al borrar los datos también se borran los segundos factores registrados: cada usuario vuelve a escanear el QR.
+
+**Problemas frecuentes**
+
+- *`Cannot connect to the Docker daemon`*: Docker Desktop no está abierto.
+- *`port is already allocated`* o la página no abre: otro programa usa el puerto 8080. Ciérralo, o cambia
+  `"8080:80"` por `"8081:80"` en `docker-compose.yml` y abre <http://localhost:8081/consola/>.
+- *El código de 6 dígitos no se acepta*: revisa que la hora del teléfono y del computador sea automática.
+- *Datos raros después de cambiar de versión*: borra los datos con `docker compose down -v`.
+
+Las contraseñas y llaves que trae `docker-compose.yml` son solo para la demo local. Para cambiarlas sin tocar el
+archivo, crea un archivo `.env` junto a `docker-compose.yml` (git lo ignora) con, por ejemplo,
+`DEMO_PASSWORD=otra-clave`. Nunca subas ese archivo al repositorio.
 
 ### Guion sugerido para mostrarla
 
@@ -45,6 +91,57 @@ Para apagarla: `Ctrl + C`, y `docker compose down`. Para borrar los datos y empe
    **segunda aprobación**; entra como `tesorero2` para darla.
 6. Entra como `admin`: cambia márgenes o la política de aprobación, y en **Auditoría** pulsa
    «Verificar integridad».
+
+### Opción 2: sin Docker (desarrollo)
+
+**Requisitos:** Node.js 22 y PostgreSQL 16. Si no tienes PostgreSQL instalado, puedes levantar solo la base
+con Docker:
+
+```bash
+docker run -d --name otc-db -e POSTGRES_USER=otc -e POSTGRES_PASSWORD=otc -e POSTGRES_DB=otc -p 5432:5432 postgres:16-alpine
+```
+
+**API** (terminal 1, desde la carpeta `backend`):
+
+```bash
+cd backend && npm install
+export DATABASE_URL=postgres://otc:otc@localhost:5432/otc
+export JWT_SECRET=una-cadena-larga-de-al-menos-32-caracteres
+export MFA_ENCRYPTION_KEY=$(openssl rand -hex 32)   # cifra los secretos del segundo factor; consérvala
+export COOKIE_SECURE=false                          # solo en http://localhost
+npm run dev            # API en http://localhost:3000; aplica migraciones y datos de demo al arrancar
+```
+
+Si cambias `MFA_ENCRYPTION_KEY` entre arranques, los segundos factores ya registrados dejan de servir. Guárdala
+en tu terminal o en un archivo fuera del repositorio.
+
+**Trabajador** (terminal 2, carpeta `backend`, con las mismas variables): `npx tsx src/worker.ts`
+
+**Consola** (terminal 3):
+
+```bash
+cd frontend && npm install && npm run dev   # http://localhost:5173/consola/ (demo anterior en http://localhost:5173)
+```
+
+La consola de desarrollo reenvía `/api` a `http://localhost:3000`. Los usuarios y el segundo factor son los mismos
+de la opción 1.
+
+En Windows, usa Git Bash o WSL para los comandos `export`, o `set VARIABLE=valor` en `cmd`.
+
+### Pruebas
+
+Desde la carpeta `backend`:
+
+```bash
+npm test               # todas las pruebas; usa TEST_DATABASE_URL (por defecto .../otc_test) y BORRA esa base
+npm run typecheck      # TypeScript
+npx vitest run test/v1/tron.test.ts   # solo el lector de TRON (nodo falso, sin conexión a la red)
+# pruebas REALES de solo lectura contra TRON, fuera de `npm test`; dejan el informe en test-real/out/
+TRON_RPC_URL=https://nile.trongrid.io npm run test:tron-real   # variables en test-real/tron.real.test.ts
+npm run test:tron-e2e                                          # variables en test-real/tron-e2e.real.test.ts
+```
+
+Para la consola: `cd frontend && npm run build`.
 
 ## Consola de operación (`/consola/`)
 
@@ -120,25 +217,3 @@ Por omisión todas las redes son simuladas. Con estas variables, la API y el tra
 | `TRON_RPC_TIMEOUT_MS` | no | Tiempo máximo por consulta, de 1000 a 60000 (por omisión 8000) |
 
 Un depósito se acredita solo si el recibo está en un bloque solidificado (irreversible), el evento `Transfer` es del contrato configurado, el monto y el destino coinciden y el origen es una billetera aprobada del cliente. Si algo falta o no cuadra, va a revisión. Si el nodo no responde, se reintenta en cada ciclo y, pasado el primer plazo, se abre un caso. Con el lector real, el simulador no escribe sobre TRON. La dirección TRON de la mesa (cuenta `WALLET_TRON_DEMO` de la demo) debe ser la billetera real que recibe.
-
-## Desarrollo sin Docker
-
-Necesitas Node.js 22 y PostgreSQL 16.
-
-```bash
-# backend
-cd backend && npm install
-export DATABASE_URL=postgres://otc:otc@localhost:5432/otc
-export JWT_SECRET=una-cadena-larga-de-al-menos-32-caracteres
-export MFA_ENCRYPTION_KEY=$(openssl rand -hex 32)   # cifra los secretos del segundo factor
-export COOKIE_SECURE=false                          # solo en http://localhost
-npm run dev            # http://localhost:3000
-npx tsx src/worker.ts  # trabajador, en otra terminal
-npm test               # usa TEST_DATABASE_URL (por defecto .../otc_test); BORRA esa base
-npx vitest run test/v1/tron.test.ts   # solo el lector de TRON (nodo falso, sin conexión a la red)
-# prueba REAL de solo lectura contra un nodo TRON; fuera de `npm test`, deja el informe en test-real/out/
-TRON_RPC_URL=https://nile.trongrid.io npm run test:tron-real   # ver variables en test-real/tron.real.test.ts
-
-# frontend
-cd frontend && npm install && npm run dev   # http://localhost:5173
-```

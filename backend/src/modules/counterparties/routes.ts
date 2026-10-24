@@ -11,6 +11,9 @@ import {
   revokeDestination,
   updateCounterparty,
 } from './service.js';
+import { POLICY } from '../../platform/policy.js';
+import { SUPPORTED_NETWORKS } from './domain.js';
+import { decideOrigin, listOrigins, proposeOrigin, revokeOrigin } from './origins.js';
 
 const uuid = z.object({ id: z.uuid() });
 const KYC = z.enum(['PENDIENTE', 'APROBADO', 'RECHAZADO', 'BLOQUEADO']);
@@ -104,5 +107,39 @@ export function counterpartyRoutes(kit: Kit) {
     '/destinations/:id/revoke',
     { permission: 'destination.decide', stepUp: true, idempotent: true, body: z.strictObject({ reason: text(500) }) },
     (ctx, body, req) => revokeDestination(ctx, uuid.parse(req.params).id, body.reason),
+  );
+
+  // ---------- Billeteras de origen ----------
+
+  kit.get('/origins/policy', 'read.operations', null, async () => ({ networks: SUPPORTED_NETWORKS, maxNetworksPerClient: POLICY.maxOriginNetworksPerClient }));
+
+  kit.post(
+    '/counterparties/:id/origins',
+    {
+      permission: 'origin.propose',
+      idempotent: true,
+      status: 201,
+      body: z.strictObject({ network: z.enum(['TRON', 'BSC']), address: z.string().trim().min(20).max(120), label: text(120) }),
+    },
+    (ctx, body, req) => proposeOrigin(ctx, uuid.parse(req.params).id, body),
+  );
+
+  kit.get(
+    '/origins',
+    'read.operations',
+    z.strictObject({ status: z.enum(['PENDIENTE', 'APROBADA', 'RECHAZADA', 'REVOCADA']) }),
+    (ctx, q) => listOrigins(ctx, q.status),
+  );
+
+  kit.post(
+    '/origins/:id/decision',
+    { permission: 'origin.decide', stepUp: true, idempotent: true, body: z.strictObject({ approve: z.boolean(), note: text(500) }) },
+    (ctx, body, req) => decideOrigin(ctx, uuid.parse(req.params).id, body.approve, body.note),
+  );
+
+  kit.post(
+    '/origins/:id/revoke',
+    { permission: 'origin.decide', stepUp: true, idempotent: true, body: z.strictObject({ reason: text(500) }) },
+    (ctx, body, req) => revokeOrigin(ctx, uuid.parse(req.params).id, body.reason),
   );
 }

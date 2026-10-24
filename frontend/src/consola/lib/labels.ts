@@ -96,6 +96,19 @@ export const RESERVATION_STATUS: Record<string, StatusInfo> = {
 
 export const SIDE: Record<string, string> = { BUY: 'Mesa compra USDT', SELL: 'Mesa vende USDT' };
 export const SIDE_SHORT: Record<string, string> = { BUY: 'Compra', SELL: 'Venta' };
+export const ORIGIN_STATUS: Record<string, StatusInfo> = {
+  PENDIENTE: s('Por aprobar', 'warning'),
+  APROBADA: s('Aprobada', 'success'),
+  RECHAZADA: s('Rechazada', 'danger'),
+  REVOCADA: s('Revocada', 'neutral'),
+};
+
+export const ORIGIN_EXCEPTION_STATUS: Record<string, StatusInfo> = {
+  SOLICITADA: s('Por autorizar', 'warning'),
+  APROBADA: s('Autorizada', 'success'),
+  RECHAZADA: s('Negada', 'danger'),
+};
+
 export const NETWORK: Record<string, string> = { TRON: 'Tron (TRC20)', BSC: 'BSC (BEP20)', BANK: 'Banco (COP)' };
 export const PURPOSE: Record<string, string> = { COBRO: 'Cobro', ENTREGA: 'Entrega', DEVOLUCION: 'Devolución', TRASLADO: 'Traslado interno' };
 export const LIQUIDITY_TYPE: Record<string, string> = { BANK: 'Banco', WALLET: 'Billetera', EXCHANGE: 'Exchange' };

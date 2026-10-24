@@ -88,6 +88,46 @@ export interface Destination {
   supersedes_id?: string | null;
 }
 
+/** Billetera de origen desde la que un cliente puede enviar USDT. Solo «APROBADA» habilita abonos. */
+export interface OriginAddress {
+  id: string;
+  counterparty_id: string;
+  network: 'TRON' | 'BSC';
+  address: string;
+  label: string | null;
+  status: 'PENDIENTE' | 'APROBADA' | 'RECHAZADA' | 'REVOCADA';
+  proposed_by: string;
+  proposed_at: string;
+  decided_by: string | null;
+  decided_at: string | null;
+  decision_note: string | null;
+  revoked_by: string | null;
+  revoked_at: string | null;
+  revoke_reason: string | null;
+  counterparty_name: string;
+  proposed_by_name: string;
+  decided_by_name: string | null;
+  revoked_by_name: string | null;
+}
+
+/** Excepción para abonar un depósito puntual que llegó desde un origen no aprobado. */
+export interface OriginException {
+  id: string;
+  transfer_id: string;
+  transfer_number: string;
+  network: 'TRON' | 'BSC';
+  from_address: string;
+  reason: string;
+  status: 'SOLICITADA' | 'APROBADA' | 'RECHAZADA';
+  requested_by: string;
+  requested_by_name: string;
+  requested_at: string;
+  decided_by: string | null;
+  decided_by_name: string | null;
+  decided_at: string | null;
+  decision_note: string | null;
+}
+
 export interface CounterpartyDetail extends CounterpartyRow {
   person_type: 'NATURAL' | 'JURIDICA';
   current_version: number;
@@ -97,6 +137,7 @@ export interface CounterpartyDetail extends CounterpartyRow {
   versions: { version: number; legal_name: string; email: string | null; phone: string | null; notes: string | null; reason: string; created_at: string; created_by_name: string }[];
   kycHistory: { from_status: string; to_status: string; note: string; created_at: string; reviewed_by_name: string }[];
   destinations: Destination[];
+  origins: OriginAddress[];
 }
 
 export interface RequestRow {

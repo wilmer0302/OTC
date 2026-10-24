@@ -18,6 +18,15 @@ import type {
 const TRON_ADDRESS = /^T[1-9A-HJ-NP-Za-km-z]{33}$/;
 const EVM_ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 
+/**
+ * Contratos USDT de la red SIMULADA. Son ficticios a propósito: no son los contratos reales de
+ * Tether, que se configurarán y verificarán contra fuentes oficiales cuando exista la integración real.
+ */
+export const SANDBOX_USDT_CONTRACT: Record<Network, string> = {
+  TRON: 'TDemoUSDTContratoFicticio111111111',
+  BSC: '0x0000000000000000000000000000000000005d01',
+};
+
 export class SandboxChain implements ChainReader {
   readonly sandbox = true;
   constructor(private readonly db: Db) {}
@@ -26,9 +35,12 @@ export class SandboxChain implements ChainReader {
     return network === 'TRON' ? TRON_ADDRESS.test(address) : EVM_ADDRESS.test(address);
   }
 
+  // Propiedad y no método: sigue disponible cuando una prueba copia el objeto con { ...chain }.
+  readonly usdtContract = (network: Network): string => SANDBOX_USDT_CONTRACT[network];
+
   async getTransaction(network: Network, txHash: string): Promise<ChainTxObservation> {
     const r = await this.db.query(
-      `SELECT status, confirmations, to_address, amount_base_units, block_number, fail_reason
+      `SELECT status, confirmations, from_address, to_address, amount_base_units, block_number, fail_reason, token_contract
        FROM otc.sandbox_chain_txs WHERE network = $1 AND lower(tx_hash) = lower($2)`,
       [network, txHash],
     );
@@ -39,6 +51,8 @@ export class SandboxChain implements ChainReader {
       status: row.status,
       confirmations: row.confirmations,
       to: row.to_address,
+      from: row.from_address,
+      tokenContract: row.token_contract ?? undefined,
       amountBaseUnits: row.amount_base_units,
       blockNumber: row.block_number,
       detail: row.fail_reason ? `SANDBOX: ${row.fail_reason}` : 'SANDBOX: respuesta simulada',

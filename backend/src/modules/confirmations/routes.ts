@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { Kit, V1Deps } from '../../http/v1/kit.js';
 import { simulateFor } from '../sandbox/service.js';
+import { decideOriginException, exceptionsOf, listExceptions, requestOriginException } from './origins.js';
 import { checkTransfer, observationsOf, resolveTransferReview } from './service.js';
 
 const uuid = z.object({ id: z.uuid() });
@@ -24,6 +25,30 @@ export function confirmationRoutes(kit: Kit, deps: V1Deps) {
     (ctx, body, req) => resolveTransferReview(ctx, uuid.parse(req.params).id, body.to, body.note),
   );
 
+  // Excepciones de origen: solicitud con motivo y autorización independiente de Cumplimiento.
+  kit.get('/transfers/:id/origin-exceptions', 'read.operations', null, (ctx, _q, req) => exceptionsOf(ctx, uuid.parse(req.params).id));
+  kit.get(
+    '/origin-exceptions',
+    'read.operations',
+    z.strictObject({ status: z.enum(['SOLICITADA', 'APROBADA', 'RECHAZADA']) }),
+    (ctx, q) => listExceptions(ctx, q.status),
+  );
+  kit.post(
+    '/transfers/:id/origin-exception',
+    { permission: 'origin.exception.request', idempotent: true, status: 201, body: z.strictObject({ reason: z.string().trim().min(10).max(1000) }) },
+    (ctx, body, req) => requestOriginException(ctx, uuid.parse(req.params).id, body.reason),
+  );
+  kit.post(
+    '/origin-exceptions/:id/decision',
+    {
+      permission: 'origin.exception.decide',
+      stepUp: true,
+      idempotent: true,
+      body: z.strictObject({ approve: z.boolean(), note: z.string().trim().min(3).max(500) }),
+    },
+    (ctx, body, req) => decideOriginException(ctx, uuid.parse(req.params).id, body.approve, body.note),
+  );
+
   // SANDBOX: solo existe en modo DEMO. Simula lo que reportarían la red o el banco.
   if (deps.mode === 'DEMO') {
     kit.post(
@@ -35,6 +60,8 @@ export function confirmationRoutes(kit: Kit, deps: V1Deps) {
           confirmations: z.number().int().min(0).max(1000).optional(),
           amount: z.string().trim().regex(/^\d{1,24}(\.\d{1,6})?$/).optional(),
           toAddress: z.string().trim().max(120).optional(),
+          fromAddress: z.string().trim().max(120).optional(),
+          tokenContract: z.string().trim().max(120).optional(),
           failReason: z.string().trim().max(200).optional(),
         }),
       },

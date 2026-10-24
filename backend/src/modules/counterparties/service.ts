@@ -4,6 +4,7 @@ import type { Ctx } from '../../platform/context.js';
 import { recordAction } from '../../platform/events.js';
 import { assertDifferentPerson, authorize, can } from '../identity/permissions.js';
 import { isValidBankAccount, kycCanMove, mask, type KycStatus, type Rail } from './domain.js';
+import { originsOf } from './origins.js';
 
 export interface NewCounterparty {
   kind: 'CLIENTE' | 'PROVEEDOR';
@@ -278,11 +279,13 @@ export async function getCounterparty(ctx: Ctx, id: string) {
     [id],
   );
   const destinations = await ctx.tx.query('SELECT * FROM otc.destinations WHERE counterparty_id = $1 ORDER BY proposed_at DESC', [id]);
+  const origins = await originsOf(ctx, id);
   return {
     ...r.rows[0],
     versions: versions.rows,
     kycHistory: kyc.rows,
     destinations: destinations.rows.map((d) => present(ctx, d)),
+    origins,
   };
 }
 

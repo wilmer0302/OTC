@@ -1,12 +1,23 @@
 // Interpretación de lo que dicen la red o el banco sobre una transferencia. Reglas puras:
 // la decisión depende solo de la observación, de lo esperado y de los plazos.
 
+import { addressKey, type Network } from '../counterparties/domain.js';
+
 export interface Expected {
   /** Dirección o sentido esperado: en la red, la dirección que debe recibir; en el banco, IN u OUT. */
   to: string | null;
   direction: 'IN' | 'OUT';
   /** En la red, unidades base del token; en el banco, pesos enteros. */
   amount: string;
+  /** En la red: contrato del token autorizado. Lo transferido debe ser ese contrato, no solo llamarse USDT. */
+  tokenContract?: string | null;
+  /** Red de la transferencia; define cómo se comparan las direcciones de origen. */
+  network?: Network | null;
+  /**
+   * Depósitos de clientes en la red: direcciones de origen autorizadas (aprobadas por Cumplimiento
+   * o con una excepción autorizada para esta transferencia). null = esta transferencia no lleva control de origen.
+   */
+  allowedFrom?: string[] | null;
 }
 
 export interface Observed {
@@ -14,6 +25,8 @@ export interface Observed {
   status?: 'PENDING' | 'SUCCESS' | 'FAILED' | 'SETTLED' | 'REJECTED';
   confirmations?: number;
   to?: string;
+  from?: string;
+  tokenContract?: string;
   direction?: 'IN' | 'OUT';
   amount?: string;
   detail?: string;
@@ -35,6 +48,9 @@ export type Decision =
   | { kind: 'REVIEW'; reason: string };
 
 const sameAddress = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+/** Con la red conocida se compara según sus reglas (Tron distingue mayúsculas); sin ella, sin distinguirlas. */
+const sameOnNetwork = (network: Network | null | undefined, a: string, b: string) =>
+  network ? addressKey(network, a) === addressKey(network, b) : sameAddress(a, b);
 
 export function decide(obs: Observed, exp: Expected, t: Timing): Decision {
   const late = t.ageSeconds >= t.reviewSeconds;
@@ -48,6 +64,12 @@ export function decide(obs: Observed, exp: Expected, t: Timing): Decision {
     return { kind: 'FAIL', reason: obs.detail ?? (obs.status === 'FAILED' ? 'La red la reporta fallida' : 'El banco la rechazó') };
   }
   // Lo que se vio debe coincidir con lo autorizado, aunque la red la reporte exitosa.
+  if (exp.tokenContract) {
+    if (!obs.tokenContract) return { kind: 'REVIEW', reason: 'La red no informó el contrato del token; no se puede verificar' };
+    if (!sameOnNetwork(exp.network, obs.tokenContract, exp.tokenContract)) {
+      return { kind: 'REVIEW', reason: `El token no es el autorizado: contrato ${obs.tokenContract}` };
+    }
+  }
   if (obs.amount !== undefined && obs.amount !== exp.amount) {
     return { kind: 'REVIEW', reason: `El monto no coincide: se esperaba ${exp.amount} y se vio ${obs.amount}` };
   }
@@ -57,6 +79,13 @@ export function decide(obs: Observed, exp: Expected, t: Timing): Decision {
   if (obs.to !== undefined) {
     if (!exp.to) return { kind: 'REVIEW', reason: 'La cuenta de destino no tiene dirección registrada; no se puede verificar' };
     if (!sameAddress(obs.to, exp.to)) return { kind: 'REVIEW', reason: `El destino no coincide: se esperaba ${exp.to} y se vio ${obs.to}` };
+  }
+  if (exp.allowedFrom) {
+    if (!obs.from) return { kind: 'REVIEW', reason: 'La red no informó la dirección de origen; no se puede verificar' };
+    const from = obs.from;
+    if (!exp.allowedFrom.some((a) => sameOnNetwork(exp.network, a, from))) {
+      return { kind: 'REVIEW', reason: `Origen no autorizado: ${from} no es una billetera aprobada del cliente${exp.network ? ` en ${exp.network}` : ''}` };
+    }
   }
   const confirmations = obs.confirmations ?? 0;
   const done = obs.status === 'SETTLED' || (obs.status === 'SUCCESS' && confirmations >= t.requiredConfirmations);
